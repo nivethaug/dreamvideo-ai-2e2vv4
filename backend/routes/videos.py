@@ -321,14 +321,16 @@ async def stream_job_video(job_id: int, user=Depends(get_current_user), db: Sess
     job = _own_job(db, user.id, job_id)
     if not job.provider_url:
         raise HTTPException(status_code=404, detail="No video available for this job")
+    api_key = _get_openrouter_key(db, job.user_id)
     with httpx.Client(timeout=120, follow_redirects=True) as client:
-        upstream = client.get(job.provider_url)
+        upstream = client.get(job.provider_url, headers={"Authorization": f"Bearer {api_key}"})
         if upstream.status_code != 200:
-            raise HTTPException(status_code=502, detail="Upstream video fetch failed")
+            raise HTTPException(status_code=502, detail=f"Upstream video fetch failed ({upstream.status_code})")
         content = upstream.content
+        ctype = upstream.headers.get("content-type", "")
     return Response(
         content=content,
-        media_type="video/mp4",
+        media_type=ctype if ctype.startswith("video/") or ctype.startswith("audio/") else "video/mp4",
         headers={
             "Content-Disposition": "inline",
             "Accept-Ranges": "none",
