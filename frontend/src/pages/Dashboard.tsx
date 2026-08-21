@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { getApiUrl } from "@/lib/api-config";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Film, Loader2, CheckCircle2, Pencil, AlertTriangle, Clock,
   Sparkles, Play, Plus, TrendingUp, RefreshCw,
@@ -57,6 +59,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<{ jobId: number; title: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -175,9 +178,18 @@ const Dashboard = () => {
                       <Icon className={`h-3 w-3 ${p.status === "Generating" || p.status === "Processing" ? "animate-spin" : ""}`} aria-hidden="true" />{meta.label}
                     </Badge>
                     {p.status === "Completed" && p.latest_video_url && (
-                      <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        aria-label={`Play ${p.title}`}
+                        data-testid={`dashboard-play-button-${p.id}`}
+                        onClick={() => {
+                          const job = p.jobs?.find(j => j.status === "Completed") ?? p.jobs?.[0];
+                          if (job) setPlaying({ jobId: job.id, title: p.title });
+                        }}
+                        className="absolute inset-0 flex items-center justify-center bg-transparent opacity-0 transition-opacity duration-300 focus-visible:opacity-100 group-hover:opacity-100"
+                      >
                         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-600/90 shadow-lg"><Play className="h-5 w-5 text-white" aria-hidden="true" /></span>
-                      </span>
+                      </button>
                     )}
                     <span className="absolute bottom-3 right-3 rounded-md bg-black/60 px-1.5 py-0.5 text-xs tabular-nums text-zinc-200">{p.duration ? `0:${String(p.duration).padStart(2, "0")}` : "—"}</span>
                   </div>
@@ -195,6 +207,25 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={!!playing} onOpenChange={open => !open && setPlaying(null)}>
+        <DialogContent className="max-w-3xl border-white/10 bg-zinc-950" data-testid="dashboard-video-dialog">
+          <DialogHeader>
+            <DialogTitle className="truncate">{playing?.title}</DialogTitle>
+          </DialogHeader>
+          {playing && (
+            <video
+              src={getApiUrl(`/api/v1/videos/jobs/${playing.jobId}/stream?token=${encodeURIComponent(localStorage.getItem("auth_token") ?? "")}`)}
+              controls
+              autoPlay
+              playsInline
+              className="aspect-video w-full rounded-lg bg-black"
+              aria-label={`Video player for ${playing.title}`}
+              data-testid="dashboard-video-player"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <p className="mt-10 text-center text-[11px] text-zinc-600">Project media: real stock footage from Pexels via your saved integration.</p>
     </div>
