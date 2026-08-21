@@ -34,7 +34,7 @@ const STATUS_META: Record<ProjectStatus, { tone: string; icon: typeof Film; labe
   Completed: { tone: "bg-emerald-500/15 text-emerald-700 border-emerald-200", icon: CheckCircle2, label: "Completed" },
   Generating: { tone: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: Loader2, label: "Generating" },
   Processing: { tone: "bg-blue-500/15 text-blue-300 border-blue-500/30", icon: RefreshCw, label: "Processing" },
-  Draft: { tone: "bg-zinc-500/15 text-zinc-700 border-zinc-500/30", icon: Pencil, label: "Draft" },
+  Draft: { tone: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30", icon: Pencil, label: "Draft" },
   Failed: { tone: "bg-red-500/15 text-red-600 border-red-200", icon: AlertTriangle, label: "Failed" },
 };
 
@@ -113,7 +113,7 @@ const Dashboard = () => {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.2em] text-violet-600/80">{greeting}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-900 md:text-4xl">{firstName}, your studio is warm.</h1>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-100 md:text-4xl">{firstName}, your studio is warm.</h1>
           <p className="mt-2 max-w-xl text-sm text-zinc-400">
             {activeCount > 0
               ? `${activeCount} ${activeCount === 1 ? "render is" : "renders are"} working in the background. Pick up a draft or start something new.`
@@ -128,11 +128,11 @@ const Dashboard = () => {
       {/* Metrics */}
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {metrics.map((m, i) => (
-          <Card key={m.label} data-testid={["dashboard-kpi-created", "dashboard-kpi-progress", "dashboard-kpi-completed"][i]} className="border-zinc-200 bg-white backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-violet-950/30">
+          <Card key={m.label} data-testid={["dashboard-kpi-created", "dashboard-kpi-progress", "dashboard-kpi-completed"][i]} className="border-white/10 bg-white/[0.03] backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-violet-950/30">
             <CardContent className="flex items-center justify-between p-5">
               <div>
                 <p className="text-xs uppercase tracking-widest text-zinc-500">{m.label}</p>
-                <p className="mt-1 text-3xl font-semibold text-zinc-900">{m.value}</p>
+                <p className="mt-1 text-3xl font-semibold text-zinc-100">{m.value}</p>
                 <p className="mt-1 flex items-center gap-1 text-xs text-emerald-400"><TrendingUp className="h-3 w-3" aria-hidden="true" />{m.delta}</p>
               </div>
               <div className="rounded-2xl bg-gradient-to-br from-violet-600/30 to-indigo-600/20 p-3">
@@ -151,7 +151,7 @@ const Dashboard = () => {
         </div>
 
         {projects.length === 0 ? (
-          <Card className="mt-4 border-dashed border-zinc-300 bg-white/[0.02]" data-testid="dashboard-empty-state">
+          <Card className="mt-4 border-dashed border-white/15 bg-white/[0.02]" data-testid="dashboard-empty-state">
             <CardContent className="flex flex-col items-center gap-4 px-6 py-16 text-center">
               <div className="rounded-full bg-violet-600/15 p-4"><Sparkles className="h-7 w-7 text-violet-700" aria-hidden="true" /></div>
               <div>
@@ -170,7 +170,7 @@ const Dashboard = () => {
               const meta = STATUS_META[p.status] ?? STATUS_META.Draft;
               const Icon = meta.icon;
               return (
-                <Card key={p.id} data-testid={`dashboard-project-card-${p.id}`} className="group overflow-hidden border-zinc-200 bg-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40">
+                <Card key={p.id} data-testid={`dashboard-project-card-${p.id}`} className="group overflow-hidden border-white/10 bg-white/[0.03] transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40">
                   <div className="relative aspect-video overflow-hidden">
                     <img src={thumb} alt={p.title} loading="lazy" className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" aria-hidden="true" />
@@ -194,11 +194,11 @@ const Dashboard = () => {
                     <span className="absolute bottom-3 right-3 rounded-md bg-black/70 px-1.5 py-0.5 text-xs tabular-nums text-white">{p.duration ? `0:${String(p.duration).padStart(2, "0")}` : "—"}</span>
                   </div>
                   <CardContent className="p-4">
-                    <h3 className="truncate font-medium text-zinc-900">{p.title}</h3>
+                    <h3 className="truncate font-medium text-zinc-100">{p.title}</h3>
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500"><Clock className="h-3 w-3" aria-hidden="true" />{rel(p.updated_at ?? p.created_at)}</p>
                     {p.status === "Failed" && p.jobs?.[0]?.error && <p className="mt-1 line-clamp-2 text-[11px] text-red-400/80">{p.jobs[0].error}</p>}
                     {p.status === "Draft" && (
-                      <Button asChild variant="outline" size="sm" className="mt-3 w-full rounded-full border-zinc-300 bg-transparent text-zinc-800 hover:bg-zinc-100">
+                      <Button asChild variant="outline" size="sm" className="mt-3 w-full rounded-full border-white/15 bg-transparent text-zinc-200 hover:bg-white/10">
                         <Link to="/create" state={{ projectId: p.id }}>Continue editing</Link>
                       </Button>
                     )}
@@ -211,7 +211,7 @@ const Dashboard = () => {
       </div>
 
       <Dialog open={!!playing} onOpenChange={open => !open && setPlaying(null)}>
-        <DialogContent className="max-w-3xl border-zinc-200 bg-zinc-950" data-testid="dashboard-video-dialog">
+        <DialogContent className="max-w-3xl border-white/10 bg-zinc-950" data-testid="dashboard-video-dialog">
           <DialogHeader>
             <DialogTitle className="truncate">{playing?.title}</DialogTitle>
           </DialogHeader>

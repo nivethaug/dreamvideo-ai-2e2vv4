@@ -242,10 +242,10 @@ const Createvideo = () => {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,65fr)_minmax(320px,35fr)]">
         {/* LEFT — creation controls */}
         <div className="min-w-0">
-          <Card className="border-zinc-200 bg-white backdrop-blur-xl">
+          <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl">
             <CardContent className="space-y-6 p-5 md:p-6">
               <div className="space-y-2">
-                <Label htmlFor="idea" className="text-sm font-medium text-zinc-700">Your idea</Label>
+                <Label htmlFor="idea" className="text-sm font-medium text-zinc-300">Your idea</Label>
                 <textarea
                   id="idea"
                   aria-label="Your video idea"
@@ -254,7 +254,7 @@ const Createvideo = () => {
                   onChange={(e) => setIdea(e.target.value)}
                   rows={4}
                   placeholder="Describe the video you want, e.g. “a cinematic drone shot over Tokyo at night, neon reflections in the rain”…"
-                  className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 text-sm leading-relaxed text-zinc-900 placeholder:text-zinc-400 outline-none transition-colors focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+                  className="w-full resize-none rounded-xl border border-white/10 bg-white/5 p-3.5 text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-400 outline-none transition-colors focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
                 />
               </div>
 
@@ -274,16 +274,16 @@ const Createvideo = () => {
                       data-testid="create-model-select"
                       onClick={() => { setModelOpen(o => !o); setModelSearch(""); }}
                       disabled={modelsLoading}
-                      className={`flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-zinc-50 px-3.5 text-left text-sm transition-colors disabled:opacity-60 ${modelOpen ? "border-violet-500/60 ring-1 ring-violet-500/30" : "border-zinc-200 hover:border-violet-500/40"}`}
+                      className={`flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-white/5 px-3.5 text-left text-sm transition-colors disabled:opacity-60 ${modelOpen ? "border-violet-500/60 ring-1 ring-violet-500/30" : "border-white/10 hover:border-violet-500/40"}`}
                     >
-                      <span className="truncate text-zinc-900">
+                      <span className="truncate text-zinc-100">
                         {modelsLoading ? "Loading models…" : models.find(m => m.id === model)?.name ?? model}
                       </span>
                       <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${modelOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                     </button>
                     {modelOpen && (
-                      <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl shadow-black/60" role="listbox" aria-label="Model list" data-testid="create-model-menu">
-                        <div className="border-b border-zinc-200 p-2.5">
+                      <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/60" role="listbox" aria-label="Model list" data-testid="create-model-menu">
+                        <div className="border-b border-white/10 p-2.5">
                           <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
                             <input
@@ -292,7 +292,7 @@ const Createvideo = () => {
                               value={modelSearch}
                               onChange={(e) => setModelSearch(e.target.value)}
                               placeholder="Search models…"
-                              className="h-9 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-violet-500/50"
+                              className="h-9 w-full rounded-lg border border-white/10 bg-white/10 pl-8 pr-3 text-xs text-zinc-200 placeholder:text-zinc-400 outline-none focus:border-violet-500/50"
                             />
                           </div>
                         </div>
@@ -301,7 +301,7 @@ const Createvideo = () => {
                             <p className="px-4 py-6 text-center text-xs text-zinc-500">No matching models.</p>
                           ) : modelGroups.map(([provider, list]) => (
                             <div key={provider}>
-                              <p className="sticky top-0 bg-white px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-violet-600">{provider}</p>
+                              <p className="sticky top-0 bg-zinc-900 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-violet-600">{provider}</p>
                               {list.map(m => (
                                 <button
                                   key={m.id}
@@ -309,7 +309,7 @@ const Createvideo = () => {
                                   role="option"
                                   aria-selected={m.id === model}
                                   onClick={() => { setModel(m.id); setModelOpen(false); }}
-                                  className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-xs transition-colors ${m.id === model ? "bg-violet-100 text-violet-800" : "text-zinc-700 hover:bg-zinc-100"}`}
+                                  className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-xs transition-colors ${m.id === model ? "bg-violet-500/20 text-violet-200" : "text-zinc-300 hover:bg-white/10"}`}
                                 >
                                   <span className="truncate">{m.name}</span>
                                   {m.id === model && <Badge className="shrink-0 border-violet-500/40 bg-violet-600/30 text-[9px] text-violet-700">Selected</Badge>}
@@ -336,7 +336,7 @@ const Createvideo = () => {
                       data-testid="create-style-select"
                       value={style}
                       onChange={e => setStyle(e.target.value)}
-                      className="h-11 w-full appearance-none rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 pr-9 text-sm text-zinc-900 outline-none transition-colors hover:border-violet-500/40 focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/30"
+                      className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-3.5 pr-9 text-sm text-zinc-100 outline-none transition-colors hover:border-violet-500/40 focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/30"
                     >
                       {STYLES.map(s => <option key={s}>{s}</option>)}
                     </select>
@@ -347,7 +347,7 @@ const Createvideo = () => {
               </div>
 
               {/* Duration */}
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <Label htmlFor="dur" className="text-xs font-medium uppercase tracking-wider text-zinc-400">Duration</Label>
                   <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2.5 py-0.5 text-xs font-semibold text-indigo-200" data-testid="create-duration-value">{duration}s</span>
@@ -381,13 +381,13 @@ const Createvideo = () => {
           </Card>
 
           {/* Media library */}
-          <Card className="mt-6 border-zinc-200 bg-white backdrop-blur-xl" data-testid="create-media-section">
+          <Card className="mt-6 border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="create-media-section">
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-base font-semibold"><Film className="h-4 w-4 text-violet-600" aria-hidden="true" />Pexels media library</h2>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
-                  <Input aria-label="Search media" data-testid="create-media-search" placeholder="Search stock footage…" value={mediaQuery} onChange={e => setMediaQuery(e.target.value)} className="rounded-full border-zinc-200 bg-zinc-50 pl-9 text-sm" />
+                  <Input aria-label="Search media" data-testid="create-media-search" placeholder="Search stock footage…" value={mediaQuery} onChange={e => setMediaQuery(e.target.value)} className="rounded-full border-white/10 bg-white/5 pl-9 text-sm" />
                 </div>
               </div>
 
@@ -405,11 +405,11 @@ const Createvideo = () => {
               ) : (
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-live="polite">
                   {results.map(item => (
-                    <button key={item.id} className="group overflow-hidden rounded-xl border border-zinc-200 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40" onClick={() => setPreview(item)} aria-label={`Preview ${item.attribution} video`}>
+                    <button key={item.id} className="group overflow-hidden rounded-xl border border-white/10 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40" onClick={() => setPreview(item)} aria-label={`Preview ${item.attribution} video`}>
                       <img src={item.preview} alt={item.attribution} loading="lazy" className="aspect-video w-full object-cover" />
                       <div className="flex items-center justify-between p-2">
                         <span className="truncate text-[11px] text-zinc-400"><Camera className="mr-1 inline h-3 w-3" aria-hidden="true" />{item.attribution}</span>
-                        <Badge variant="outline" className="border-zinc-200 text-[10px] text-zinc-700">{item.duration}s</Badge>
+                        <Badge variant="outline" className="border-white/10 text-[10px] text-zinc-300">{item.duration}s</Badge>
                       </div>
                     </button>
                   ))}
@@ -422,7 +422,7 @@ const Createvideo = () => {
 
         {/* RIGHT — video preview (sticky) */}
         <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-          <Card className="overflow-hidden border-zinc-200 bg-black shadow-xl shadow-black/30" data-testid="create-video-panel">
+          <Card className="overflow-hidden border-white/10 bg-black shadow-xl shadow-black/30" data-testid="create-video-panel">
             <div className="relative aspect-video" data-testid="create-canvas">
               {videoLive ? (
                 <video src={getApiUrl(`/api/v1/videos/jobs/${job!.id}/stream?token=${encodeURIComponent(localStorage.getItem("auth_token") ?? "")}`)} controls playsInline className="h-full w-full bg-black" aria-label="Generated video preview" />
@@ -445,13 +445,13 @@ const Createvideo = () => {
               )}
             </div>
             {(jobBusy || job) && (
-              <div className="flex items-center gap-3 border-t border-zinc-200 px-4 py-3 text-sm text-zinc-700" aria-live="polite" data-testid="create-job-status">
+              <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-sm text-zinc-300" aria-live="polite" data-testid="create-job-status">
                 {jobBusy && <Loader2 className="h-4 w-4 animate-spin text-violet-600" aria-hidden="true" />}
                 {jobBusy ? `Job #${job?.id ?? "—"} — ${job?.status ?? "Queued"}` : job?.status === "Completed" ? "Completed" : job?.status}
                 {jobBusy && <Clock className="ml-auto h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />}
               </div>
             )}
-            <div className="border-t border-zinc-200 px-4 py-3 text-[11px] text-zinc-500">
+            <div className="border-t border-white/10 px-4 py-3 text-[11px] text-zinc-500">
               {models.find(m => m.id === model)?.name ?? model} · {duration}s · {style}
             </div>
           </Card>
@@ -460,15 +460,15 @@ const Createvideo = () => {
 
       {/* Preview dialog */}
       <Dialog open={!!preview} onOpenChange={o => !o && setPreview(null)}>
-        <DialogContent role="dialog" aria-label="Media preview" className="max-w-2xl border-zinc-200 bg-[#0b0b18]">
+        <DialogContent role="dialog" aria-label="Media preview" className="max-w-2xl border-white/10 bg-[#0b0b18]">
           {preview && (
             <>
               <DialogHeader className="flex-row items-center justify-between">
                 <DialogTitle className="text-sm">Pexels stock video · {preview.duration}s</DialogTitle>
-                <button aria-label="Close preview" onClick={() => setPreview(null)} className="rounded-full p-1.5 hover:bg-zinc-100"><X className="h-4 w-4" aria-hidden="true" /></button>
+                <button aria-label="Close preview" onClick={() => setPreview(null)} className="rounded-full p-1.5 hover:bg-white/10"><X className="h-4 w-4" aria-hidden="true" /></button>
               </DialogHeader>
               <video src={preview.url} poster={preview.preview} controls playsInline className="w-full rounded-lg bg-black" aria-label="Stock video preview" />
-              <p className="text-xs text-zinc-500">{preview.attribution} · <a href={preview.pexels_url} target="_blank" rel="noreferrer" className="underline hover:text-zinc-700">View on Pexels</a></p>
+              <p className="text-xs text-zinc-500">{preview.attribution} · <a href={preview.pexels_url} target="_blank" rel="noreferrer" className="underline hover:text-zinc-300">View on Pexels</a></p>
             </>
           )}
         </DialogContent>

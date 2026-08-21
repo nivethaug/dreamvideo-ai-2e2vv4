@@ -94,10 +94,10 @@ const Settings = () => {
       )}
 
       {/* Tabs */}
-      <div className="mt-8 flex gap-1 border-b border-zinc-200" role="tablist" aria-label="Settings tabs">
+      <div className="mt-8 flex gap-1 border-b border-white/10" role="tablist" aria-label="Settings tabs">
         {TABS.map(t => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors ${tab === t.id ? "border-violet-500 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700"}`}>
+            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors ${tab === t.id ? "border-violet-500 text-zinc-100" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
             <t.icon className="h-4 w-4" aria-hidden="true" />{t.label}
           </button>
         ))}
@@ -106,14 +106,14 @@ const Settings = () => {
       <div className="mt-6 space-y-6" aria-live="polite">
         {tab === "profile" && (
           <>
-            <Card className="border-zinc-200 bg-white backdrop-blur-xl" data-testid="settings-profile-section">
+            <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="settings-profile-section">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16 border border-zinc-200">
+                  <Avatar className="h-16 w-16 border border-white/10">
                     <AvatarFallback>{name.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium text-zinc-900">{name}</p>
+                    <p className="font-medium text-zinc-100">{name}</p>
                     <p className="text-sm text-zinc-500">{email}</p>
                     <Badge className="mt-1 border-emerald-200 bg-emerald-500/15 text-emerald-700">Studio plan · active</Badge>
                   </div>
@@ -121,23 +121,23 @@ const Settings = () => {
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="name">Display name</Label>
-                    <Input id="name" aria-label="Display name" data-testid="settings-name-input" value={name} onChange={e => setName(e.target.value)} className="border-zinc-200 bg-zinc-50" />
+                    <Input id="name" aria-label="Display name" data-testid="settings-name-input" value={name} onChange={e => setName(e.target.value)} className="border-white/10 bg-white/5" />
                     {nameError && <p className="text-xs text-red-400" role="alert">{nameError}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" aria-label="Email" data-testid="settings-email-input" type="email" value={email} disabled className="border-zinc-200 bg-zinc-50 opacity-60" />
+                    <Input id="email" aria-label="Email" data-testid="settings-email-input" type="email" value={email} disabled className="border-white/10 bg-white/5 opacity-60" />
                   </div>
                 </div>
                 <div className="mt-6 flex gap-3">
                   <Button onClick={saveProfile} disabled={saving} className="gap-2 rounded-full bg-violet-600 text-white hover:bg-violet-500">
                     <span className="flex items-center gap-2">{saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}Save changes</span>
                   </Button>
-                  <Button variant="outline" className="rounded-full border-zinc-300 bg-transparent text-zinc-700 hover:bg-zinc-100" onClick={() => { setName(user?.name ?? "Studio Creator"); setEmail(user?.email ?? "you@studio.com"); setNameError(null); }}>Cancel</Button>
+                  <Button variant="outline" className="rounded-full border-white/15 bg-transparent text-zinc-300 hover:bg-white/10" onClick={() => { setName(user?.name ?? "Studio Creator"); setEmail(user?.email ?? "you@studio.com"); setNameError(null); }}>Cancel</Button>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-zinc-200 bg-white">
+            <Card className="border-white/10 bg-white/[0.03]">
               <CardContent className="flex flex-wrap items-center justify-between gap-3 p-6">
                 <div>
                   <p className="font-medium">Account</p>
@@ -152,7 +152,7 @@ const Settings = () => {
         )}
 
         {tab === "security" && (
-          <Card className="border-zinc-200 bg-white backdrop-blur-xl" data-testid="settings-security-section">
+          <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="settings-security-section">
             <CardContent className="space-y-6 p-6">
               <div data-testid="settings-openrouter-section">
                 <h2 className="font-medium">OpenRouter API key</h2>
@@ -172,8 +172,8 @@ const Settings = () => {
                 ) : (
                   <div className="mt-3 flex gap-2">
                     <div className="relative flex-1">
-                      <Input aria-label="OpenRouter API key" data-testid="settings-apikey-input" type={showKey ? "text" : "password"} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-or-…" className="border-zinc-200 bg-zinc-50 pr-10 font-mono text-sm" />
-                      <button type="button" aria-label={showKey ? "Hide API key" : "Show API key"} onClick={() => setShowKey(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700">
+                      <Input aria-label="OpenRouter API key" data-testid="settings-apikey-input" type={showKey ? "text" : "password"} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-or-…" className="border-white/10 bg-white/5 pr-10 font-mono text-sm" />
+                      <button type="button" aria-label={showKey ? "Hide API key" : "Show API key"} onClick={() => setShowKey(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
                         {showKey ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                       </button>
                     </div>
@@ -182,7 +182,7 @@ const Settings = () => {
                 )}
                 <p className="mt-2 text-xs text-zinc-400">Pexels imagery needs no key here — it's handled by the saved server-side integration.</p>
               </div>
-              <div className="border-t border-zinc-200 pt-6">
+              <div className="border-t border-white/10 pt-6">
                 <h2 className="font-medium">Session</h2>
                 <p className="mt-1 text-sm text-zinc-500">You're signed in with a secure session token. Passwords are hashed server-side and never stored in plain text.</p>
               </div>
@@ -191,7 +191,7 @@ const Settings = () => {
         )}
 
         {tab === "preferences" && (
-          <Card className="border-zinc-200 bg-white backdrop-blur-xl">
+          <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl">
             <CardContent className="space-y-5 p-6">
               {[
                 ["Default style", "Cinematic 2.39:1"],
@@ -200,8 +200,8 @@ const Settings = () => {
                 ["Reduce motion in previews", "Off"],
               ].map(([label, val]) => (
                 <div key={label} className="flex items-center justify-between">
-                  <p className="text-sm text-zinc-700">{label}</p>
-                  <Badge variant="outline" className="border-zinc-200 text-zinc-700">{val}</Badge>
+                  <p className="text-sm text-zinc-300">{label}</p>
+                  <Badge variant="outline" className="border-white/10 text-zinc-300">{val}</Badge>
                 </div>
               ))}
               <Button onClick={() => flash("success", "Preferences saved.")} className="rounded-full bg-violet-600 text-white hover:bg-violet-500">Save preferences</Button>
