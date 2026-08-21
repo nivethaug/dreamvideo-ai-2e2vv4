@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   Wand2, Play, Pause, Volume2, Maximize2, Paperclip, Loader2,
   Search, AlertTriangle, Film, Clock, Camera, Sparkles, Send, X, ImageOff,
+  Download, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,111 +11,250 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getByCategory, pick, type PexelsPhoto } from "@/lib/pexels";
+import { api } from "@/services/database";
 
-interface Scene {
-  id: string;
-  photo: PexelsPhoto;
-  narration: string;
-  direction: string;
-  seconds: number;
-  mediaAttached: boolean;
+interface MediaItem { id: number; url: string; preview: string; duration: number; attribution: string; pexels_url: string }
+interface ModelInfo { id: string; name: string; context_length: number | null; duration_min: number; duration_max: number }
+interface SceneRec {
+  id: number; position: number; heading: string; duration: number;
+  visual_prompt: string; voiceover: string; search_query: string;
+  media_url: string | null; media_attribution: string | null;
 }
+interface JobInfo { id: number; status: string; provider_url: string | null; error: string | null; expires_at: string | null }
 
 const STYLES = ["Cinematic 2.39:1", "Documentary", "Social Vertical", "Minimal Titles"];
-const MODELS = ["DreamVideo C1", "DreamVideo C1 Pro", "Storyboard-only"];
-const DURATIONS = ["30s", "60s", "90s", "3min"];
 
 const SUGGESTED_COMMANDS = [
-  "Make scene 2 slower and darker",
-  "Add a closing title card",
+  "Make this scene slower and darker",
   "Rewrite narration in a warmer tone",
-  "Cut scene 4 and tighten pacing",
-  "Swap the opening shot for aerial footage",
+  "Make the visual more energetic",
+  "Tighten the search query to aerial footage",
 ];
 
-const MEDIA_CATEGORIES = ["cinematic", "nature", "city", "ocean", "mountain", "space", "forest", "abstract", "tech", "people", "desert", "portrait"] as const;
+const DEFAULT_MODEL = "openai/gpt-4o-mini";
 
-const initialScenes = (): Scene[] => {
-  const seeds = ["scene-one", "scene-two", "scene-three", "scene-four"];
-  const notes = [
-    ["Cold open over dark water; establish scale and silence.", "Wide, slow push-in. Desaturated grade, heavy shadows."],
-    ["The city wakes — fragments of light on glass.", "Handheld feel, quick cuts, neon reflections."],
-    ["A voice answers from the static: the journey begins.", "Medium close-up, shallow depth, violet rim light."],
-    ["Title card. Silence. Then music.", "Cut to black, serif title, 2s hold."],
-  ];
-  return seeds.map((s, i) => ({
-    id: s,
-    photo: pick(s + i),
-    narration: notes[i][0],
-    direction: notes[i][1],
-    seconds: [6, 8, 7, 5][i],
-    mediaAttached: i === 0,
-  }));
-};
+const urlExpired = (iso: string | null): boolean => !!iso && new Date(iso).getTime() < Date.now();
 
 const Createvideo = () => {
-  const [idea, setIdea] = useState("A 60-second cinematic teaser about a lighthouse keeper who receives a signal from deep space.");
+  const location = useLocation() as { state?: { projectId?: number } };
+  const [projectId, setProjectId] = useState<number | null>(location.state?.projectId ?? null);
+  const [title, setTitle] = useState("Untitled teaser");
+  const [idea, setIdea] = useState("A cinematic teaser about a lighthouse keeper who receives a signal from deep space.");
   const [style, setStyle] = useState(STYLES[0]);
-  const [model, setModel] = useState(MODELS[0]);
-  const [duration, setDuration] = useState(DURATIONS[1]);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [duration, setDuration] = useState(8);
   const [tab, setTab] = useState<"script" | "scenes" | "voice">("scenes");
-  const [playing, setPlaying] = useState(false);
-  const [scenes, setScenes] = useState<Scene[]>(initialScenes);
+  const [scenes, setScenes] = useState<SceneRec[]>([]);
   const [command, setCommand] = useState("");
   const [mediaQuery, setMediaQuery] = useState("");
-  const [mediaCategory, setMediaCategory] = useState<string>("cinematic");
-  const [mediaLoading, setMediaLoading] = useState(true);
+  const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [results, setResults] = useState<PexelsPhoto[]>([]);
-  const [preview, setPreview] = useState<{ photo: PexelsPhoto; sceneId: string } | null>(null);
+  const [results, setResults] = useState<MediaItem[]>([]);
+  const [preview, setPreview] = useState<{ item: MediaItem; sceneId: number } | null>(null);
+  const [scriptBusy, setScriptBusy] = useState(false);
+  const [scriptError, setScriptError] = useState<string | null>(null);
+  const [job, setJob] = useState<JobInfo | null>(null);
+  const [jobBusy, setJobBusy] = useState(false);
+  const [editState, setEditState] = useState<{ sceneId: number; phase: "editing"; original: SceneRec } | { sceneId: number; phase: "updated"; original: SceneRec } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSceneId, setEditSceneId] = useState<number | null>(null);
+  const pollRef = useRef<number | null>(null);
 
-  // Mock live-search over the verified catalog. PENDING: backend proxy for real
-  // runtime Pexels search; on API error we surface an honest error, never fake results.
+  const selectedModel = models.find(m => m.id === model);
+  const durMin = selectedModel?.duration_min ?? 5;
+  const durMax = selectedModel?.duration_max ?? 10;
+  const durationOptions = useMemo(() => {
+    const arr: number[] = [];
+    for (let d = durMin; d <= durMax; d++) arr.push(d);
+    return arr;
+  }, [durMin, durMax]);
+
+  // clamp duration whenever model range changes
+  useEffect(() => {
+    setDuration(d => Math.max(durMin, Math.min(durMax, d)));
+  }, [durMin, durMax]);
+
+  // real model discovery (requires saved OpenRouter key)
   useEffect(() => {
     let alive = true;
-    setMediaLoading(true);
-    setMediaError(null);
-    const t = setTimeout(() => {
+    (async () => {
+      setModelsLoading(true);
+      const res = await api.get<{ models: ModelInfo[] }>("/api/v1/videos/models");
       if (!alive) return;
-      let found = getByCategory(mediaCategory as never);
-      if (mediaQuery.trim()) {
-        const q = mediaQuery.trim().toLowerCase();
-        const filtered = found.filter(p => (p.alt ?? "").toLowerCase().includes(q) || p.photographer.toLowerCase().includes(q));
-        // catalog fallback across all categories when the active one has no match
-        if (filtered.length === 0) {
-          const all = MEDIA_CATEGORIES.flatMap(c => getByCategory(c));
-          found = all.filter(p => (p.alt ?? "").toLowerCase().includes(q));
-        } else found = filtered;
+      setModelsLoading(false);
+      if (res.success && res.data?.models?.length) {
+        setModels(res.data.models);
+        setModelsError(null);
+      } else {
+        setModels([]);
+        setModelsError(res.error || "No models available. Save your OpenRouter key in Settings first.");
       }
-      if (found.length === 0 && mediaQuery.trim()) setMediaError(`No results for “${mediaQuery}”. Try another term or category.`);
-      setResults(found);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // open project from dashboard
+  useEffect(() => {
+    const pid = location.state?.projectId;
+    if (!pid) return;
+    (async () => {
+      const res = await api.get<Record<string, unknown>>(`/api/v1/videos/projects/${pid}`);
+      if (res.success && res.data) {
+        const p = res.data as unknown as { id: number; title: string; idea: string; model: string | null; duration: number | null; scenes: SceneRec[]; jobs: JobInfo[] };
+        setProjectId(p.id);
+        setTitle(p.title);
+        setIdea(p.idea);
+        if (p.model) setModel(p.model);
+        if (p.duration) setDuration(p.duration);
+        setScenes(p.scenes ?? []);
+        const last = p.jobs?.[0];
+        if (last) {
+          setJob(last);
+          if (last.status === "Queued" || last.status === "Processing") startPolling(last.id);
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // real Pexels video search (debounced, server proxy)
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(async () => {
+      const q = mediaQuery.trim();
+      if (!q) { setResults([]); setMediaError(null); setMediaLoading(false); return; }
+      setMediaLoading(true);
+      setMediaError(null);
+      const res = await api.get<{ videos: MediaItem[] }>("/api/media/search", { q, per_page: 12 });
+      if (!alive) return;
       setMediaLoading(false);
+      if (res.success && res.data) {
+        setResults(res.data.videos ?? []);
+        if (!(res.data.videos ?? []).length) setMediaError(`No results for “${q}”. Try another term.`);
+      } else {
+        setResults([]);
+        setMediaError(res.error || "Pexels search failed.");
+      }
     }, 450);
     return () => { alive = false; clearTimeout(t); };
-  }, [mediaQuery, mediaCategory]);
+  }, [mediaQuery]);
 
-  const totalTime = useMemo(() => scenes.reduce((a, s) => a + s.seconds, 0), [scenes]);
+  useEffect(() => () => { if (pollRef.current) window.clearInterval(pollRef.current); }, []);
 
-  const attachToScene = (photo: PexelsPhoto, sceneId: string) => {
-    setScenes(prev => prev.map(s => (s.id === sceneId ? { ...s, photo, mediaAttached: true } : s)));
-    setPreview(null);
+  const totalTime = useMemo(() => scenes.reduce((a, s) => a + s.duration, 0), [scenes]);
+
+  const generateScript = async () => {
+    setScriptBusy(true);
+    setScriptError(null);
+    const res = await api.post<Record<string, unknown>>("/api/v1/videos/generate-script", { idea, model, duration });
+    setScriptBusy(false);
+    if (!res.success || !res.data) {
+      setScriptError(res.error || "Script generation failed. Check your OpenRouter key in Settings.");
+      return;
+    }
+    const p = res.data as unknown as { id: number; title: string; scenes: SceneRec[] };
+    setProjectId(p.id);
+    setTitle(p.title);
+    setScenes(p.scenes ?? []);
+    setJob(null);
+    setTab("scenes");
   };
 
+  const attachMedia = async (item: MediaItem, sceneId: number) => {
+    // optimistic update, then persist
+    setScenes(prev => prev.map(s => (s.id === sceneId ? { ...s, media_url: item.url, media_attribution: item.attribution } : s)));
+    setPreview(null);
+    const res = await api.put(`/api/v1/videos/scenes/${sceneId}`, { media_url: item.url, media_attribution: item.attribution });
+    if (!res.success) setScriptError(res.error || "Could not attach media to the scene.");
+  };
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sceneId = editSceneId ?? scenes[0]?.id;
+    const instr = command.trim();
+    if (!sceneId || instr.length < 3) {
+      setEditError("Pick a scene and describe the change.");
+      return;
+    }
+    const original = scenes.find(s => s.id === sceneId)!;
+    setEditError(null);
+    setEditState({ sceneId, phase: "editing", original });
+    const res = await api.post<{ updated: SceneRec }>(`/api/v1/videos/scenes/${sceneId}/edit`, { instruction: instr });
+    if (!res.success || !res.data?.updated) {
+      setEditState(null);
+      setEditError(res.error || "AI edit failed.");
+      return;
+    }
+    const updated = res.data.updated;
+    setScenes(prev => prev.map(s => (s.id === sceneId ? { ...s, ...updated } : s)));
+    setEditState({ sceneId, phase: "updated", original });
+    setCommand("");
+    setTimeout(() => setEditState(null), 6000);
+  };
+
+  const startPolling = (jobId: number) => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    pollRef.current = window.setInterval(async () => {
+      const res = await api.get<JobInfo>(`/api/v1/videos/jobs/${jobId}`);
+      if (res.success && res.data) {
+        setJob(res.data);
+        if (res.data.status === "Completed" || res.data.status === "Failed") {
+          if (pollRef.current) window.clearInterval(pollRef.current);
+          setJobBusy(false);
+        }
+      }
+    }, 3000);
+  };
+
+  const generateVideo = async () => {
+    if (!projectId) {
+      setScriptError("Generate the script first — there's no project to render yet.");
+      return;
+    }
+    setJobBusy(true);
+    setScriptError(null);
+    const res = await api.post<JobInfo>("/api/v1/videos", { project_id: projectId, model, duration });
+    if (!res.success || !res.data) {
+      setJobBusy(false);
+      setScriptError(res.error || "Could not submit the video job.");
+      return;
+    }
+    setJob(res.data);
+    startPolling(res.data.id);
+  };
+
+  const editing = editState?.phase === "editing";
+  const canvasScene = scenes.find(s => s.media_url) ?? scenes[0];
+  const videoLive = job?.status === "Completed" && job.provider_url && !urlExpired(job.expires_at);
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10" data-testid="create-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-violet-400/80">Create / Edit</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">Untitled teaser</h1>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="rounded-full border-white/15 bg-transparent text-zinc-200 hover:bg-white/10">Save draft</Button>
-          <Button className="gap-2 rounded-full bg-violet-600 text-white hover:bg-violet-500" onClick={() => setPlaying(false)}>
-            <span className="flex items-center gap-2"><Wand2 className="h-4 w-4" aria-hidden="true" />Generate video</span>
+          <Button variant="outline" disabled={scriptBusy} onClick={generateScript} className="gap-2 rounded-full border-white/15 bg-transparent text-zinc-200 hover:bg-white/10" data-testid="create-generate-script-button">
+            <span className="flex items-center gap-2">{scriptBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}{scenes.length ? "Regenerate script" : "Generate script"}</span>
+          </Button>
+          <Button className="gap-2 rounded-full bg-violet-600 text-white hover:bg-violet-500" onClick={generateVideo} disabled={jobBusy || !projectId} data-testid="create-generate-video-button">
+            <span className="flex items-center gap-2">{jobBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Wand2 className="h-4 w-4" aria-hidden="true" />}{job && job.status === "Completed" ? "Regenerate video" : "Generate video"}</span>
           </Button>
         </div>
       </div>
+
+      {scriptError && (
+        <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{scriptError}{!models.length && " — "}
+            {!models.length && <Link className="underline" to="/settings">go to Settings to connect your OpenRouter key</Link>}
+          </span>
+        </div>
+      )}
 
       {/* Idea + selectors */}
       <Card className="mt-6 border-white/10 bg-white/[0.03] backdrop-blur-xl">
@@ -123,13 +264,14 @@ const Createvideo = () => {
             <textarea
               id="idea"
               aria-label="Your video idea"
+              data-testid="create-idea-input"
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
               rows={3}
               className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-zinc-100 outline-none transition-colors focus:border-violet-500/50"
             />
           </div>
-          <div className="grid grid-cols-3 gap-3 md:w-[420px]">
+          <div className="grid grid-cols-3 gap-3 md:w-[460px]">
             <div className="space-y-1.5">
               <Label htmlFor="style">Style</Label>
               <select id="style" aria-label="Style" value={style} onChange={e => setStyle(e.target.value)} className="h-10 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
@@ -138,15 +280,19 @@ const Createvideo = () => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="model">Model</Label>
-              <select id="model" aria-label="Model" value={model} onChange={e => setModel(e.target.value)} className="h-10 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
-                {MODELS.map(s => <option key={s}>{s}</option>)}
+              <select id="model" aria-label="Model" data-testid="create-model-select" value={model} onChange={e => setModel(e.target.value)} disabled={modelsLoading} className="h-10 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200 disabled:opacity-60">
+                {modelsLoading ? <option>Loading models…</option>
+                  : models.length === 0 ? <option value={DEFAULT_MODEL}>{DEFAULT_MODEL}</option>
+                  : models.slice(0, 60).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
+              {modelsError && <p className="text-[10px] text-amber-400">{modelsError}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dur">Duration</Label>
-              <select id="dur" aria-label="Duration" value={duration} onChange={e => setDuration(e.target.value)} className="h-10 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
-                {DURATIONS.map(s => <option key={s}>{s}</option>)}
+              <select id="dur" aria-label="Duration" data-testid="create-duration-select" value={duration} onChange={e => setDuration(Number(e.target.value))} className="h-10 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
+                {durationOptions.map(d => <option key={d} value={d}>{d}s</option>)}
               </select>
+              <p className="text-[10px] text-zinc-500">Model supports {durMin}–{durMax}s</p>
             </div>
           </div>
         </CardContent>
@@ -156,19 +302,35 @@ const Createvideo = () => {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         <div>
           <Card className="overflow-hidden border-white/10 bg-black">
-            <div className="relative aspect-video">
-              <img src={scenes[0].photo.url} alt="Video canvas preview frame" className="h-full w-full object-cover opacity-80" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40" aria-hidden="true" />
-              <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 p-4">
-                <button aria-label={playing ? "Pause" : "Play"} onClick={() => setPlaying(p => !p)} className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-600/90 text-white transition-transform hover:scale-105 motion-reduce:transition-none">
-                  {playing ? <Pause className="h-5 w-5" aria-hidden="true" /> : <Play className="h-5 w-5" aria-hidden="true" />}
-                </button>
-                <div className="h-1.5 flex-1 rounded-full bg-white/20"><div className="h-full w-1/3 rounded-full bg-violet-500" /></div>
-                <span className="text-xs tabular-nums text-zinc-300">0:20 / 0:45</span>
-                <button aria-label="Mute" className="p-2 text-zinc-300 hover:text-white"><Volume2 className="h-4 w-4" aria-hidden="true" /></button>
-                <button aria-label="Fullscreen" className="p-2 text-zinc-300 hover:text-white"><Maximize2 className="h-4 w-4" aria-hidden="true" /></button>
-              </div>
+            <div className="relative aspect-video" data-testid="create-canvas">
+              {videoLive ? (
+                <video src={job!.provider_url!} controls playsInline className="h-full w-full bg-black" aria-label="Generated video preview" />
+              ) : canvasScene?.media_url ? (
+                <video src={canvasScene.media_url} poster={undefined} muted loop autoPlay playsInline className="h-full w-full object-cover opacity-80" aria-label="Scene media preview" />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#0b0b18] text-zinc-500">
+                  {jobBusy ? <><Loader2 className="h-8 w-8 animate-spin text-violet-400" aria-hidden="true" /><p className="text-sm">{job?.status ?? "Queued"}…</p></>
+                    : job?.status === "Failed" ? <><AlertTriangle className="h-8 w-8 text-red-400" aria-hidden="true" /><p className="max-w-md px-6 text-center text-sm">{job.error}</p></>
+                    : <><Film className="h-8 w-8" aria-hidden="true" /><p className="text-sm">Generate a script, attach media, then render.</p></>}
+                </div>
+              )}
+              {job?.status === "Completed" && job.provider_url && urlExpired(job.expires_at) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-sm text-zinc-200" role="alert">
+                  Video link expired. Please generate the video again.
+                </div>
+              )}
+              {videoLive && (
+                <a href={job!.provider_url!} target="_blank" rel="noreferrer" className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-xs font-medium text-white hover:bg-violet-500" data-testid="create-download-button">
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />Download
+                </a>
+              )}
             </div>
+            {jobBusy && (
+              <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-sm text-zinc-300" aria-live="polite" data-testid="create-job-status">
+                <Loader2 className="h-4 w-4 animate-spin text-violet-400" aria-hidden="true" />
+                Job #{job?.id} — {job?.status}
+              </div>
+            )}
           </Card>
 
           {/* Tabs */}
@@ -189,24 +351,46 @@ const Createvideo = () => {
             <div className="pt-5" aria-live="polite">
               {tab === "script" && (
                 <div className="space-y-4">
-                  {(scenes.map(s => s.narration).join(" ") && <p className="whitespace-pre-line rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm leading-relaxed text-zinc-300">{scenes.map(s => s.narration).join(" ")}</p>)}
-                  <p className="text-xs text-zinc-500">PENDING: AI script regeneration will be wired to a backend endpoint.</p>
+                  {scenes.length === 0 ? (
+                    <p className="text-sm text-zinc-500">No script yet — enter an idea and click “Generate script”.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {scenes.map((s, i) => (
+                        <div key={s.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                          <p className="text-xs font-medium uppercase tracking-wider text-violet-400/80">Scene {i + 1} · {s.heading}</p>
+                          <p className="mt-2 text-sm leading-relaxed text-zinc-300">{s.voiceover}</p>
+                          <p className="mt-1 text-xs italic text-zinc-500">{s.visual_prompt}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {tab === "scenes" && (
-                <div className="flex gap-4 overflow-x-auto pb-3">
-                  {scenes.map((s, idx) => (
-                    <div key={s.id} className="w-56 shrink-0">
-                      <button className="group relative block w-full overflow-hidden rounded-xl border border-white/10" aria-label={`Preview scene ${idx + 1}`} onClick={() => setPreview({ photo: s.photo, sceneId: s.id })}>
-                        <img src={s.photo.url} alt={`Scene ${idx + 1}`} loading="lazy" className="aspect-video w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none" />
-                        {s.mediaAttached && <Badge className="absolute right-2 top-2 gap-1 border-emerald-500/30 bg-emerald-500/20 text-emerald-300"><Paperclip className="h-3 w-3" aria-hidden="true" />Media</Badge>}
-                        <span className="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-200"><Clock className="mr-1 inline h-3 w-3" aria-hidden="true" />{s.seconds}s</span>
-                      </button>
-                      <p className="mt-2 line-clamp-2 text-xs text-zinc-300">{s.narration}</p>
-                      <p className="mt-1 line-clamp-1 text-[11px] italic text-zinc-500">{s.direction}</p>
-                    </div>
-                  ))}
-                </div>
+                scenes.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No scenes yet — generate the script first.</p>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-3">
+                    {scenes.map((s, idx) => (
+                      <div key={s.id} className="w-56 shrink-0">
+                        <button className="group relative block w-full overflow-hidden rounded-xl border border-white/10" aria-label={`Scene ${idx + 1} media`} onClick={() => setMediaQuery(s.search_query || s.heading)}>
+                          {s.media_url ? (
+                            <video src={s.media_url} muted playsInline className="aspect-video w-full object-cover opacity-90" />
+                          ) : (
+                            <div className="flex aspect-video w-full items-center justify-center bg-[#12101d] text-zinc-600"><ImageOff className="h-5 w-5" aria-hidden="true" /></div>
+                          )}
+                          {s.media_url && <Badge className="absolute right-2 top-2 gap-1 border-emerald-500/30 bg-emerald-500/20 text-emerald-300"><Paperclip className="h-3 w-3" aria-hidden="true" />Media</Badge>}
+                          <span className="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-200"><Clock className="mr-1 inline h-3 w-3" aria-hidden="true" />{s.duration}s</span>
+                        </button>
+                        <p className="mt-2 line-clamp-2 text-xs text-zinc-300">{s.voiceover}</p>
+                        <p className="mt-1 line-clamp-1 text-[11px] italic text-zinc-500">{s.visual_prompt}</p>
+                        <button onClick={() => setEditSceneId(s.id)} className={`mt-2 w-full rounded-full border px-2 py-1 text-[11px] ${editSceneId === s.id ? "border-violet-500/60 bg-violet-600/20 text-violet-200" : "border-white/10 text-zinc-400 hover:text-zinc-200"}`} aria-pressed={editSceneId === s.id}>
+                          {editSceneId === s.id ? "Selected for AI edit" : `Select for AI edit`}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
               {tab === "voice" && (
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -214,7 +398,7 @@ const Createvideo = () => {
                     <Card key={v} className="border-white/10 bg-white/[0.03] transition-all duration-300 hover:shadow-lg hover:shadow-violet-950/30">
                       <CardContent className="p-4">
                         <p className="flex items-center gap-2 text-sm font-medium"><Sparkles className="h-4 w-4 text-violet-400" aria-hidden="true" />{v}</p>
-                        <p className="mt-1 text-xs text-zinc-500">Preview unavailable until generation is wired.</p>
+                        <p className="mt-1 text-xs text-zinc-500">Voiceover text is generated per scene by OpenRouter; TTS playback requires a voice provider.</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -224,24 +408,19 @@ const Createvideo = () => {
           </div>
 
           {/* Media library */}
-          <Card className="mt-8 border-white/10 bg-white/[0.03] backdrop-blur-xl">
+          <Card className="mt-8 border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="create-media-section">
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-base font-semibold"><Film className="h-4 w-4 text-violet-400" aria-hidden="true" />Pexels media library</h2>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
-                  <Input aria-label="Search media" placeholder="Search footage…" value={mediaQuery} onChange={e => setMediaQuery(e.target.value)} className="rounded-full border-white/10 bg-black/40 pl-9 text-sm" />
+                  <Input aria-label="Search media" data-testid="create-media-search" placeholder="Search stock footage…" value={mediaQuery} onChange={e => setMediaQuery(e.target.value)} className="rounded-full border-white/10 bg-black/40 pl-9 text-sm" />
                 </div>
               </div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {MEDIA_CATEGORIES.map(c => (
-                  <button key={c} onClick={() => setMediaCategory(c)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs capitalize transition-colors ${mediaCategory === c && !mediaQuery ? "border-violet-500/50 bg-violet-600/20 text-violet-200" : "border-white/10 text-zinc-400 hover:text-zinc-200"}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
 
-              {mediaLoading ? (
+              {mediaQuery.trim() === "" ? (
+                <p className="py-10 text-center text-sm text-zinc-500" aria-live="polite">Type to search real stock videos from Pexels.</p>
+              ) : mediaLoading ? (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-400" aria-live="polite">
                   <Loader2 className="h-4 w-4 animate-spin text-violet-400" aria-hidden="true" />Searching Pexels…
                 </div>
@@ -252,26 +431,33 @@ const Createvideo = () => {
                 </div>
               ) : (
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-live="polite">
-                  {results.map((p, i) => (
-                    <button key={p.url + i} className="group overflow-hidden rounded-xl border border-white/10 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40" onClick={() => setPreview({ photo: p, sceneId: scenes[0].id })}>
-                      <img src={p.url} alt={p.alt} loading="lazy" className="aspect-video w-full object-cover" />
+                  {results.map(item => (
+                    <button key={item.id} className="group overflow-hidden rounded-xl border border-white/10 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40" onClick={() => setPreview({ item, sceneId: editSceneId ?? scenes[0]?.id ?? 0 })}>
+                      <img src={item.preview} alt={item.attribution} loading="lazy" className="aspect-video w-full object-cover" />
                       <div className="flex items-center justify-between p-2">
-                        <span className="truncate text-[11px] text-zinc-400"><Camera className="mr-1 inline h-3 w-3" aria-hidden="true" />{p.photographer}</span>
-                        <Badge variant="outline" className="border-white/10 text-[10px] text-zinc-300">Scene</Badge>
+                        <span className="truncate text-[11px] text-zinc-400"><Camera className="mr-1 inline h-3 w-3" aria-hidden="true" />{item.attribution}</span>
+                        <Badge variant="outline" className="border-white/10 text-[10px] text-zinc-300">{item.duration}s</Badge>
                       </div>
                     </button>
                   ))}
                 </div>
               )}
-              <p className="mt-3 text-[11px] text-zinc-600">Photos from Pexels. PENDING: live video thumbnails + durations via backend proxy.</p>
+              <p className="mt-3 text-[11px] text-zinc-600">Stock videos from Pexels — search, preview and attach to scenes. Attribution kept automatically.</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Edit with AI panel */}
-        <Card className="h-fit border-violet-500/20 bg-gradient-to-b from-violet-950/30 to-indigo-950/20 backdrop-blur-xl lg:sticky lg:top-24">
+        <Card className="h-fit border-violet-500/20 bg-gradient-to-b from-violet-950/30 to-indigo-950/20 backdrop-blur-xl lg:sticky lg:top-24" data-testid="create-edit-panel">
           <CardContent className="space-y-4 p-5">
             <h2 className="flex items-center gap-2 text-base font-semibold"><Wand2 className="h-4 w-4 text-violet-400" aria-hidden="true" />Edit with AI</h2>
+            <div>
+              <Label htmlFor="edit-scene" className="text-xs">Scene</Label>
+              <select id="edit-scene" aria-label="Scene to edit" data-testid="create-edit-scene-select" value={editSceneId ?? scenes[0]?.id ?? ""} onChange={e => setEditSceneId(Number(e.target.value))} className="mt-1 h-9 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
+                {scenes.map((s, i) => <option key={s.id} value={s.id}>Scene {i + 1} — {s.heading.slice(0, 28)}</option>)}
+              </select>
+              {scenes.length === 0 && <p className="mt-1 text-[11px] text-zinc-500">Generate the script to enable AI editing.</p>}
+            </div>
             <div className="space-y-2">
               {SUGGESTED_COMMANDS.map(c => (
                 <button key={c} onClick={() => setCommand(c)} className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-left text-xs text-zinc-300 transition-colors hover:border-violet-500/40 hover:text-zinc-100">
@@ -279,11 +465,35 @@ const Createvideo = () => {
                 </button>
               ))}
             </div>
-            <form className="flex gap-2" onSubmit={e => { e.preventDefault(); }}>
-              <Input aria-label="AI edit command" value={command} onChange={e => setCommand(e.target.value)} placeholder="Tell the AI what to change…" className="border-white/10 bg-black/40 text-sm" />
-              <Button type="submit" aria-label="Send command" className="shrink-0 bg-violet-600 text-white hover:bg-violet-500"><Send className="h-4 w-4" aria-hidden="true" /></Button>
+            <form className="flex gap-2" onSubmit={submitEdit}>
+              <Input aria-label="AI edit command" data-testid="create-edit-command-input" value={command} onChange={e => setCommand(e.target.value)} placeholder="Tell the AI what to change…" className="border-white/10 bg-black/40 text-sm" />
+              <Button type="submit" aria-label="Send command" disabled={editing || scenes.length === 0} data-testid="create-edit-submit" className="shrink-0 bg-violet-600 text-white hover:bg-violet-500">
+                {editing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
+              </Button>
             </form>
-            <p className="text-[11px] text-zinc-500">PENDING: AI editing is UI-only — no command is executed yet (no fake success states).</p>
+            {editError && <p className="text-xs text-red-400" role="alert">{editError}</p>}
+            {editState && (
+              <div className="space-y-2 rounded-lg border border-violet-500/30 bg-black/40 p-3 text-xs" aria-live="polite" data-testid="create-edit-status">
+                {editState.phase === "editing" ? (
+                  <p className="flex items-center gap-2 text-violet-300"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Editing via OpenRouter…</p>
+                ) : (
+                  <p className="flex items-center gap-2 text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />Scene updated</p>
+                )}
+                <div>
+                  <p className="text-zinc-500">Original</p>
+                  <p className="line-clamp-2 text-zinc-400">{editState.original.voiceover}</p>
+                  {editState.phase === "updated" && scenes.find(s => s.id === editState.sceneId) && (
+                    <>
+                      <p className="mt-2 text-zinc-500">Updated</p>
+                      <p className="line-clamp-2 text-zinc-200">{scenes.find(s => s.id === editState.sceneId)!.voiceover}</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+            {job?.status === "Completed" && (
+              <p className="text-[11px] text-zinc-500 flex items-center gap-1.5"><RefreshCw className="h-3 w-3" aria-hidden="true" />Use “Regenerate video” to re-render after edits.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -294,17 +504,17 @@ const Createvideo = () => {
           {preview && (
             <>
               <DialogHeader className="flex-row items-center justify-between">
-                <DialogTitle className="text-sm">{preview.photo.alt}</DialogTitle>
+                <DialogTitle className="text-sm">Pexels stock video · {preview.item.duration}s</DialogTitle>
                 <button aria-label="Close preview" onClick={() => setPreview(null)} className="rounded-full p-1.5 hover:bg-white/10"><X className="h-4 w-4" aria-hidden="true" /></button>
               </DialogHeader>
-              <img src={preview.photo.url} alt={preview.photo.alt} className="w-full rounded-lg" />
-              <p className="text-xs text-zinc-500">Photo by {preview.photo.photographer} · Pexels</p>
+              <video src={preview.item.url} poster={preview.item.preview} controls playsInline className="w-full rounded-lg bg-black" aria-label="Stock video preview" />
+              <p className="text-xs text-zinc-500">{preview.item.attribution} · <a href={preview.item.pexels_url} target="_blank" rel="noreferrer" className="underline hover:text-zinc-300">View on Pexels</a></p>
               <div className="flex items-center gap-2">
                 <Label htmlFor="attach-scene" className="text-xs">Attach to</Label>
-                <select id="attach-scene" aria-label="Attach to scene" value={preview.sceneId} onChange={e => setPreview({ ...preview, sceneId: e.target.value })} className="h-9 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
+                <select id="attach-scene" aria-label="Attach to scene" value={preview.sceneId} onChange={e => setPreview({ ...preview, sceneId: Number(e.target.value) })} className="h-9 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
                   {scenes.map((s, i) => <option key={s.id} value={s.id}>Scene {i + 1}</option>)}
                 </select>
-                <Button onClick={() => attachToScene(preview.photo, preview.sceneId)} className="bg-violet-600 text-white hover:bg-violet-500">Use in Scene</Button>
+                <Button onClick={() => attachMedia(preview.item, preview.sceneId)} disabled={!preview.sceneId} data-testid="create-attach-media-button" className="bg-violet-600 text-white hover:bg-violet-500">Use in Scene</Button>
               </div>
             </>
           )}

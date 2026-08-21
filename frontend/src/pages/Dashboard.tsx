@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Film, Loader2, CheckCircle2, Pencil, AlertTriangle, Clock,
@@ -7,18 +7,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { pick } from "@/lib/pexels";
+import { api } from "@/services/database";
 import { useAuth } from "@/lib/auth";
 
 type ProjectStatus = "Completed" | "Generating" | "Processing" | "Draft" | "Failed";
 
+interface Scene { id: number; heading: string; media_url: string | null; visual_prompt: string }
+interface Job { id: number; status: string; error: string | null }
 interface Project {
-  id: string;
+  id: number;
   title: string;
   status: ProjectStatus;
-  updated: string;
-  duration: string;
-  seed: string;
+  idea: string;
+  model: string | null;
+  duration: number | null;
+  updated_at: string | null;
+  created_at: string | null;
+  scenes: Scene[];
+  jobs: Job[];
+  latest_video_url: string | null;
 }
 
 const STATUS_META: Record<ProjectStatus, { tone: string; icon: typeof Film; label: string }> = {
@@ -29,14 +36,21 @@ const STATUS_META: Record<ProjectStatus, { tone: string; icon: typeof Film; labe
   Failed: { tone: "bg-red-500/15 text-red-300 border-red-500/30", icon: AlertTriangle, label: "Failed" },
 };
 
-const SEED_PROJECTS: Project[] = [
-  { id: "p1", title: "North Atlantic — cold open", status: "Completed", updated: "2 hours ago", duration: "1:20", seed: "north-atlantic" },
-  { id: "p2", title: "Product launch teaser", status: "Generating", updated: "just now", duration: "0:45", seed: "launch-teaser" },
-  { id: "p3", title: "City nights montage", status: "Processing", updated: "5 minutes ago", duration: "2:05", seed: "city-nights" },
-  { id: "p4", title: "Studio interview cut", status: "Draft", updated: "yesterday", duration: "3:40", seed: "interview-cut" },
-  { id: "p5", title: "Desert drone sequence", status: "Failed", updated: "2 days ago", duration: "—", seed: "desert-drone" },
-  { id: "p6", title: "Brand film — chapter two", status: "Completed", updated: "3 days ago", duration: "1:55", seed: "brand-ch2" },
-];
+const rel = (iso: string | null): string => {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.round(ms / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} minutes ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return h === 1 ? "1 hour ago" : `${h} hours ago`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+};
+
+const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#14121f"/><text x="50%" y="50%" fill="#6b6a86" font-family="sans-serif" font-size="20" text-anchor="middle">No scene media</text></svg>`
+);
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -44,26 +58,22 @@ const Dashboard = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
+  const load = useCallback(async () => {
     setLoading(true);
-    // Mock project store — PENDING: replace with a backend projects endpoint.
-    const t = setTimeout(() => {
-      if (!alive) return;
-      try {
-        setProjects(SEED_PROJECTS);
-        setError(null);
-      } catch {
-        setError("Could not load your projects.");
-      } finally {
-        setLoading(false);
-      }
-    }, 500);
-    return () => { alive = false; clearTimeout(t); };
+    const res = await api.get<{ projects: Project[] }>("/api/v1/videos/projects");
+    setLoading(false);
+    if (res.success && res.data) {
+      setProjects(res.data.projects ?? []);
+      setError(null);
+    } else {
+      setError(res.error || "Could not load your projects.");
+    }
   }, []);
 
+  useEffect(() => { load(); }, [load]);
+
   const metrics = useMemo(() => ([
-    { label: "Videos Created", value: "24", delta: "+6 this month", icon: Film },
+    { label: "Videos Created", value: String(projects.length), delta: `${projects.filter(p => p.status === "Completed").length} exported`, icon: Film },
     { label: "In Progress", value: String(projects.filter(p => p.status === "Generating" || p.status === "Processing").length), delta: "rendering now", icon: Loader2 },
     { label: "Completed", value: String(projects.filter(p => p.status === "Completed").length), delta: "ready to export", icon: CheckCircle2 },
   ]), [projects]);
@@ -71,6 +81,7 @@ const Dashboard = () => {
   const firstName = user?.name?.split(" ")[0] ?? "Director";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const activeCount = projects.filter(p => p.status === "Generating" || p.status === "Processing").length;
 
   if (loading) {
     return (
@@ -88,29 +99,33 @@ const Dashboard = () => {
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 px-4 text-center" role="alert">
         <AlertTriangle className="h-10 w-10 text-red-400" aria-hidden="true" />
         <h1 className="text-xl font-semibold">{error}</h1>
-        <Button onClick={() => window.location.reload()}>Try again</Button>
+        <Button onClick={load}>Try again</Button>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-12">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-12" data-testid="dashboard-page">
       {/* Greeting + continue creating */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.2em] text-violet-400/80">{greeting}</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-100 md:text-4xl">{firstName}, your studio is warm.</h1>
-          <p className="mt-2 max-w-xl text-sm text-zinc-400">Two renders are working in the background. Pick up a draft or start something new.</p>
+          <p className="mt-2 max-w-xl text-sm text-zinc-400">
+            {activeCount > 0
+              ? `${activeCount} ${activeCount === 1 ? "render is" : "renders are"} working in the background. Pick up a draft or start something new.`
+              : "Pick up a draft or start something new."}
+          </p>
         </div>
-        <Button asChild className="h-11 gap-2 rounded-full bg-violet-600 px-6 text-white hover:bg-violet-500">
+        <Button asChild className="h-11 gap-2 rounded-full bg-violet-600 px-6 text-white hover:bg-violet-500" data-testid="dashboard-new-video-button">
           <Link to="/create"><span className="flex items-center gap-2"><Plus className="h-4 w-4" aria-hidden="true" />New video</span></Link>
         </Button>
       </div>
 
       {/* Metrics */}
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {metrics.map(m => (
-          <Card key={m.label} className="border-white/10 bg-white/[0.03] backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-violet-950/30">
+        {metrics.map((m, i) => (
+          <Card key={m.label} data-testid={["dashboard-kpi-created", "dashboard-kpi-progress", "dashboard-kpi-completed"][i]} className="border-white/10 bg-white/[0.03] backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-violet-950/30">
             <CardContent className="flex items-center justify-between p-5">
               <div>
                 <p className="text-xs uppercase tracking-widest text-zinc-500">{m.label}</p>
@@ -133,7 +148,7 @@ const Dashboard = () => {
         </div>
 
         {projects.length === 0 ? (
-          <Card className="mt-4 border-dashed border-white/15 bg-white/[0.02]">
+          <Card className="mt-4 border-dashed border-white/15 bg-white/[0.02]" data-testid="dashboard-empty-state">
             <CardContent className="flex flex-col items-center gap-4 px-6 py-16 text-center">
               <div className="rounded-full bg-violet-600/15 p-4"><Sparkles className="h-7 w-7 text-violet-300" aria-hidden="true" /></div>
               <div>
@@ -148,29 +163,30 @@ const Dashboard = () => {
         ) : (
           <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite">
             {projects.map(p => {
-              const photo = pick(p.seed);
-              const meta = STATUS_META[p.status];
+              const thumb = p.scenes.find(s => s.media_url)?.media_url || PLACEHOLDER;
+              const meta = STATUS_META[p.status] ?? STATUS_META.Draft;
               const Icon = meta.icon;
               return (
-                <Card key={p.id} className="group overflow-hidden border-white/10 bg-white/[0.03] transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40">
+                <Card key={p.id} data-testid={`dashboard-project-card-${p.id}`} className="group overflow-hidden border-white/10 bg-white/[0.03] transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40">
                   <div className="relative aspect-video overflow-hidden">
-                    <img src={photo.url} alt={p.title} loading="lazy" className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none" />
+                    <img src={thumb} alt={p.title} loading="lazy" className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" aria-hidden="true" />
                     <Badge className={`absolute left-3 top-3 gap-1.5 border backdrop-blur ${meta.tone}`}>
-                      <Icon className={`h-3 w-3 ${p.status === "Generating" ? "animate-spin" : ""}`} aria-hidden="true" />{meta.label}
+                      <Icon className={`h-3 w-3 ${p.status === "Generating" || p.status === "Processing" ? "animate-spin" : ""}`} aria-hidden="true" />{meta.label}
                     </Badge>
-                    {p.status === "Completed" && (
+                    {p.status === "Completed" && p.latest_video_url && (
                       <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-600/90 shadow-lg"><Play className="h-5 w-5 text-white" aria-hidden="true" /></span>
                       </span>
                     )}
-                    <span className="absolute bottom-3 right-3 rounded-md bg-black/60 px-1.5 py-0.5 text-xs tabular-nums text-zinc-200">{p.duration}</span>
+                    <span className="absolute bottom-3 right-3 rounded-md bg-black/60 px-1.5 py-0.5 text-xs tabular-nums text-zinc-200">{p.duration ? `0:${String(p.duration).padStart(2, "0")}` : "—"}</span>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="truncate font-medium text-zinc-100">{p.title}</h3>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500"><Clock className="h-3 w-3" aria-hidden="true" />{p.updated}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500"><Clock className="h-3 w-3" aria-hidden="true" />{rel(p.updated_at ?? p.created_at)}</p>
+                    {p.status === "Failed" && p.jobs?.[0]?.error && <p className="mt-1 line-clamp-2 text-[11px] text-red-400/80">{p.jobs[0].error}</p>}
                     <Button asChild variant="outline" size="sm" className="mt-3 w-full rounded-full border-white/15 bg-transparent text-zinc-200 hover:bg-white/10">
-                      <Link to="/create">{p.status === "Draft" ? "Continue editing" : "Open project"}</Link>
+                      <Link to="/create" state={{ projectId: p.id }}>{p.status === "Draft" ? "Continue editing" : "Open project"}</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -180,7 +196,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      <p className="mt-10 text-center text-[11px] text-zinc-600">Project thumbnails: real photography from Pexels photographers.</p>
+      <p className="mt-10 text-center text-[11px] text-zinc-600">Project media: real stock footage from Pexels via your saved integration.</p>
     </div>
   );
 };

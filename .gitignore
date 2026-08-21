@@ -78,3 +78,4 @@ htmlcov/
 *.tmp
 *.temp
 .cache/
+backend/user.json

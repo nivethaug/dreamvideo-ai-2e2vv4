@@ -53,18 +53,25 @@ const Landing = () => {
   const [heroReady, setHeroReady] = useState(false);
   useEffect(() => setHeroReady(Boolean(hero)), [hero]);
 
-  const submit = () => {
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
     setFormError(null);
-    if (!email.includes("@") || password.length < 6) {
-      setFormError("Enter a valid email and a password of at least 6 characters.");
+    if (!email.includes("@") || password.length < 8) {
+      setFormError("Enter a valid email and a password of at least 8 characters.");
       return;
     }
     if (authMode === "signup" && name.trim().length < 2) {
       setFormError("Tell us your name to create the studio account.");
       return;
     }
-    if (authMode === "signin") signIn(email, name || "Studio Creator");
-    else signUp(name, email);
+    setBusy(true);
+    const res =
+      authMode === "signin"
+        ? await signIn(email, password)
+        : await signUp(name, email, password);
+    setBusy(false);
+    if (!res.ok) setFormError(res.error || "Something went wrong. Please try again.");
+    else window.location.assign("/dashboard");
   };
 
   const avatarFor = (i: number): PexelsPhoto | undefined => avatars[i % Math.max(avatars.length, 1)];

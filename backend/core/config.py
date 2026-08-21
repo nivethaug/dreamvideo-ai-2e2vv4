@@ -27,5 +27,8 @@ class Settings:
     # Project
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "DreamPilot API")
 
+    # Optional real video-generation provider (none configured = jobs fail honestly)
+    VIDEO_PROVIDER_URL: str = os.getenv("VIDEO_PROVIDER_URL", "")
+
 
 settings = Settings()
