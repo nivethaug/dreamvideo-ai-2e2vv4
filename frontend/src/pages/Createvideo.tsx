@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { api } from "@/services/database";
 
 interface MediaItem { id: number; url: string; preview: string; duration: number; attribution: string; pexels_url: string }
@@ -64,8 +65,9 @@ const Createvideo = () => {
   const pollRef = useRef<number | null>(null);
 
   const selectedModel = models.find(m => m.id === model);
-  const durMin = selectedModel?.duration_min ?? 5;
-  const durMax = selectedModel?.duration_max ?? 10;
+  // Platform supports 5–10 seconds; clamp any model range into that window
+  const durMin = Math.max(5, selectedModel?.duration_min ?? 5);
+  const durMax = Math.min(10, Math.max(durMin, selectedModel?.duration_max ?? 10));
   const durationOptions = useMemo(() => {
     const arr: number[] = [];
     for (let d = durMin; d <= durMax; d++) arr.push(d);
@@ -287,12 +289,25 @@ const Createvideo = () => {
               </select>
               {modelsError && <p className="text-[10px] text-amber-400">{modelsError}</p>}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="dur">Duration</Label>
-              <select id="dur" aria-label="Duration" data-testid="create-duration-select" value={duration} onChange={e => setDuration(Number(e.target.value))} className="h-10 w-full rounded-md border border-white/10 bg-black/40 px-2 text-xs text-zinc-200">
-                {durationOptions.map(d => <option key={d} value={d}>{d}s</option>)}
-              </select>
-              <p className="text-[10px] text-zinc-500">Model supports {durMin}–{durMax}s</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="dur">Duration</Label>
+                <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 bg-gradient-to-r from-indigo-300 to-purple-400 bg-clip-text px-2 py-0.5 text-xs font-semibold text-transparent" data-testid="create-duration-value">{duration}s</span>
+              </div>
+              <Slider
+                id="dur"
+                aria-label="Video duration in seconds"
+                data-testid="create-duration-slider"
+                min={durMin}
+                max={durMax}
+                step={1}
+                value={[duration]}
+                onValueChange={(v) => setDuration(v[0] ?? duration)}
+                className="py-1 [&_[data-slot=slider-range]]:bg-gradient-to-r [&_[data-slot=slider-range]]:from-indigo-500 [&_[data-slot=slider-range]]:to-purple-600"
+              />
+              <div className="flex justify-between text-[10px] text-zinc-500" aria-hidden="true">
+                <span>{durMin}s</span><span>{durMax}s</span>
+              </div>
             </div>
           </div>
         </CardContent>

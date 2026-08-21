@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { NavLink, Link } from "react-router-dom";
-import { Clapperboard, LayoutDashboard, Sparkles, Settings as SettingsIcon, Menu, X } from "lucide-react";
+import { NavLink, Link, useNavigate } from "react-router-dom";
+import { Clapperboard, LayoutDashboard, Sparkles, Settings as SettingsIcon, Menu, X, LogOut, User as UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import AuthModal from "@/components/AuthModal";
+import { useAuth } from "@/lib/auth";
 
 const links = [
   { to: "/", label: "Home", icon: Clapperboard, end: true },
@@ -12,6 +19,22 @@ const links = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const { user, isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const initials = (user?.name || user?.email || "U")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase())
+    .join("");
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#07070f]/85 backdrop-blur-xl">
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6" aria-label="Main navigation">
@@ -43,12 +66,55 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            to="/create"
-            className="hidden h-11 items-center rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-5 text-sm font-semibold text-white shadow-lg shadow-purple-950/50 transition-transform duration-200 hover:scale-[1.03] motion-reduce:transition-none md:flex"
-          >
-            <span>Start Creating</span>
-          </Link>
+          {isAuthenticated && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex h-11 items-center gap-2 rounded-full border border-white/10 bg-white/5 pl-1 pr-3 text-sm font-medium text-zinc-100 transition-colors hover:bg-white/10"
+                  data-testid="navbar-profile-menu"
+                  aria-label="Account menu"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-700 text-xs font-semibold text-white">
+                      {initials || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden max-w-[120px] truncate sm:inline">{user.name || user.email}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 border-white/10 bg-[#0b0b18]/95 backdrop-blur-xl">
+                <DropdownMenuLabel className="truncate text-xs text-zinc-500">{user.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem onClick={() => navigate("/settings")} className="gap-2 text-zinc-200" data-testid="navbar-profile-settings">
+                  <UserIcon className="h-4 w-4" aria-hidden="true" /> Profile & Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard")} className="gap-2 text-zinc-200" data-testid="navbar-profile-dashboard">
+                  <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem onClick={handleSignOut} className="gap-2 text-red-400" data-testid="navbar-logout-button">
+                  <LogOut className="h-4 w-4" aria-hidden="true" /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                className="hidden h-11 text-sm text-zinc-300 hover:bg-white/5 hover:text-white md:flex"
+                onClick={() => setAuthOpen(true)}
+                data-testid="navbar-login-button"
+              >
+                Log in
+              </Button>
+              <Link
+                to="/create"
+                className="hidden h-11 items-center rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-5 text-sm font-semibold text-white shadow-lg shadow-purple-950/50 transition-transform duration-200 hover:scale-[1.03] motion-reduce:transition-none md:flex"
+              >
+                <span>Start Creating</span>
+              </Link>
+            </>
+          )}
           <button
             className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-300 hover:bg-white/5 md:hidden"
             onClick={() => setOpen(!open)}
@@ -81,8 +147,19 @@ export default function Navbar() {
               </span>
             </NavLink>
           ))}
+          {!isAuthenticated && (
+            <button
+              onClick={() => { setOpen(false); setAuthOpen(true); }}
+              className="mt-2 flex h-12 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-zinc-300 hover:bg-white/5"
+              data-testid="navbar-mobile-login-button"
+            >
+              Log in / Sign up
+            </button>
+          )}
         </div>
       )}
+
+      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
     </header>
   );
 }
