@@ -46,7 +46,7 @@ async def save_key(request: SaveKeyRequest, user=Depends(get_current_user), db: 
         raise HTTPException(status_code=400, detail="Invalid API key")
     # Validate the key against OpenRouter before saving
     try:
-        list_models(key)
+        await list_models(key)
     except OpenRouterError as e:
         raise HTTPException(status_code=400, detail=f"OpenRouter rejected this key: {e}")
     encrypted = crypto_service.encrypt(key)
