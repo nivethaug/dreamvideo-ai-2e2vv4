@@ -193,7 +193,7 @@ const Createvideo = () => {
         pid = p.data.id;
         setProjectId(pid);
       }
-      const res = await api.post<JobInfo>("/api/v1/videos", { project_id: pid, model, duration });
+      const res = await api.post<JobInfo>("/api/v1/videos", { project_id: pid, model, duration, idea: idea.trim() });
       if (!res.success || !res.data) {
         setError(res.error || "Could not submit the video job.");
         return;

@@ -283,15 +283,18 @@ class CreateVideoRequest(BaseModel):
     project_id: int
     model: Optional[str] = None
     duration: Optional[int] = None
+    idea: Optional[str] = None
 
 
 @router.post("")
 async def create_video(request: CreateVideoRequest, user=Depends(get_current_user), db: Session = Depends(get_db)):
     project = _own_project(db, user.id, request.project_id)
-    duration = max(5, min(10, request.duration or project.duration or 8))
+    duration = max(5, min(10, request.duration or project.duration_seconds or 8))
     if request.model:
         project.model = request.model
-    project.duration = duration
+    if request.idea:
+        project.idea = request.idea
+    project.duration_seconds = duration
     project.status = "Processing"
 
     import json as _json
@@ -329,7 +332,9 @@ def _advance_job(db: Session, job: VideoJob):
             "Your storyboard, scenes and media selections are saved — connect a "
             "video provider to enable rendering."
         )
-        job.project.status = "Failed"
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if project:
+            project.status = "Failed"
         db.commit()
         return
 
