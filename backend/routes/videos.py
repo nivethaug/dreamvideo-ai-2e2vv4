@@ -139,7 +139,7 @@ def _project_dict(db: Session, project: Project) -> dict:
         "idea": project.idea,
         "status": project.status,
         "model": project.model,
-        "duration": project.duration,
+        "duration": project.duration_seconds,
         "created_at": project.created_at.isoformat() if project.created_at else None,
         "updated_at": project.updated_at.isoformat() if project.updated_at else None,
         "scenes": [_scene_dict(s) for s in scenes],
@@ -149,7 +149,7 @@ def _project_dict(db: Session, project: Project) -> dict:
                 "status": j.status,
                 "provider_url": j.provider_url,
                 "error": j.error,
-                "expires_at": j.expires_at.isoformat() if j.expires_at else None,
+                "expires_at": None,
                 "created_at": j.created_at.isoformat() if j.created_at else None,
             }
             for j in jobs
