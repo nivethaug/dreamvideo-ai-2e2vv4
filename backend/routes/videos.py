@@ -298,7 +298,7 @@ async def create_video(request: CreateVideoRequest, user=Depends(get_current_use
     project.status = "Processing"
 
     import json as _json
-    job = VideoJob(project_id=project.id, user_id=user.id, provider="none", status="Queued",
+    job = VideoJob(project_id=project.id, user_id=user.id, provider="openrouter", status="Queued",
                    metadata_json=_json.dumps({"model": project.model or request.model,
                                               "duration": duration}))
     db.add(job)
@@ -316,56 +316,88 @@ async def get_job(job_id: int, user=Depends(get_current_user), db: Session = Dep
 
 
 def _advance_job(db: Session, job: VideoJob):
-    """
-    Advance the job honestly. OpenRouter is a chat/LLM router — it cannot
-    generate video files. If no real video-generation provider is configured,
-    the job fails with an honest message rather than fabricating a video.
-    A future provider can be wired in here via VIDEO_PROVIDER_URL etc.
-    """
-    provider = getattr(settings, "VIDEO_PROVIDER_URL", None) or None
-    if not provider:
+    """Run/advance the job using OpenRouter's real async video-generation API."""
+    project = db.query(Project).filter(Project.id == job.project_id).first()
+    try:
+        api_key = _get_openrouter_key(db, job.user_id)
+    except Exception as e:  # noqa: BLE001
         job.status = "Failed"
-        job.error = (
-            "No video-generation provider is configured for this deployment. "
-            "OpenRouter (your saved key) handles script/scene/AI-edit steps, but "
-            "actual video rendering requires a real video-generation provider. "
-            "Your storyboard, scenes and media selections are saved — connect a "
-            "video provider to enable rendering."
-        )
-        project = db.query(Project).filter(Project.id == job.project_id).first()
-        if project:
-            project.status = "Failed"
+        job.error = f"OpenRouter API key not available: {e}"
+        project.status = "Failed"
         db.commit()
         return
 
-    # Real provider path (kept for when VIDEO_PROVIDER_URL is configured)
+    meta = _job_meta(job)
+    model = meta.get("model")
+    duration = meta.get("duration")
+    if not model:
+        job.status = "Failed"
+        job.error = "No model selected for this job."
+        project.status = "Failed"
+        db.commit()
+        return
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     try:
         with httpx.Client(timeout=60) as client:
-            resp = client.post(
-                provider,
-                json={"prompt": _compose_prompt(db, job), "duration": _job_meta(job).get("duration")},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        url = data.get("url") or data.get("video_url")
-        if not url:
+            external_id = meta.get("openrouter_job_id")
+            if external_id:
+                # Poll the existing OpenRouter video job
+                resp = client.get(f"https://openrouter.ai/api/v1/videos/{external_id}", headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+            else:
+                # Submit a new video generation request
+                payload = {"model": model, "prompt": _compose_prompt(db, job)}
+                resp = client.post("https://openrouter.ai/api/v1/videos", headers=headers, json=payload)
+                if resp.status_code not in (200, 202):
+                    job.error = f"OpenRouter video request failed ({resp.status_code}): {resp.text[:300]}"
+                    job.status = "Failed"
+                    project.status = "Failed"
+                    db.commit()
+                    return
+                data = resp.json()
+                meta["openrouter_job_id"] = data.get("id")
+                job.metadata_json = json.dumps(meta)
+                job.status = "Processing"
+                db.commit()
+                return
+
+        status = data.get("status")
+        if status == "completed":
+            urls = data.get("unsigned_urls") or []
+            if urls:
+                job.status = "Completed"
+                job.provider_url = urls[0]
+                project.status = "Completed"
+                db.commit()
+            else:
+                job.status = "Failed"
+                job.error = "OpenRouter completed the job but returned no video URL."
+                project.status = "Failed"
+                db.commit()
+        elif status == "failed" or status == "cancelled":
             job.status = "Failed"
-            job.error = "Provider did not return a video URL."
+            job.error = f"OpenRouter video generation {status}: {data.get('error', 'unknown error')}"
+            project.status = "Failed"
+            db.commit()
         else:
-            job.status = "Completed"
-            job.provider_url = url
-            job.project.status = "Completed"
+            job.status = "Processing"
+            db.commit()
     except Exception as e:  # noqa: BLE001
         job.status = "Failed"
-        job.error = f"Video provider error: {e}"
-        job.project.status = "Failed"
-    db.commit()
+        job.error = f"OpenRouter video error: {e}"
+        project.status = "Failed"
+        db.commit()
 
 
 def _compose_prompt(db: Session, job: VideoJob) -> str:
+    project = db.query(Project).filter(Project.id == job.project_id).first()
     scenes = db.query(Scene).filter(Scene.project_id == job.project_id).order_by(Scene.position).all()
-    parts = [f"{s.heading}: {s.visual_prompt}" for s in scenes]
-    return f"{job.project.title}. " + " | ".join(parts)
+    if scenes:
+        parts = [f"{s.visual_prompt}" for s in scenes if s.visual_prompt]
+        return (project.idea or project.title or "Video") + " | " + " | ".join(parts)
+    return project.idea or project.title or "Generate a beautiful short video."
 
 
 def _job_meta(job: VideoJob) -> dict:
