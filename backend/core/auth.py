@@ -9,10 +9,14 @@ from services.auth_service import AuthService
 
 def get_current_user(
     authorization: Optional[str] = Header(None),
+    token: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        if token:
+            authorization = f"Bearer {token}"
+        else:
+            raise HTTPException(status_code=401, detail="Not authenticated")
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid authorization format")

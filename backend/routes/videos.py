@@ -3,7 +3,7 @@ import json
 import datetime
 import uuid
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -315,6 +315,28 @@ async def get_job(job_id: int, user=Depends(get_current_user), db: Session = Dep
     return _job_dict(job)
 
 
+@router.get("/jobs/{job_id}/stream")
+async def stream_job_video(job_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """Stream the generated video with a playable content-type (proxy)."""
+    job = _own_job(db, user.id, job_id)
+    if not job.provider_url:
+        raise HTTPException(status_code=404, detail="No video available for this job")
+    with httpx.Client(timeout=120, follow_redirects=True) as client:
+        upstream = client.get(job.provider_url)
+        if upstream.status_code != 200:
+            raise HTTPException(status_code=502, detail="Upstream video fetch failed")
+        content = upstream.content
+    return Response(
+        content=content,
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": "inline",
+            "Accept-Ranges": "none",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
 def _advance_job(db: Session, job: VideoJob):
     """Run/advance the job using OpenRouter's real async video-generation API."""
     project = db.query(Project).filter(Project.id == job.project_id).first()
@@ -376,7 +398,7 @@ def _advance_job(db: Session, job: VideoJob):
                 job.error = "OpenRouter completed the job but returned no video URL."
                 project.status = "Failed"
                 db.commit()
-        elif status == "failed" or status == "cancelled":
+        elif status in ("failed", "cancelled", "expired"):
             job.status = "Failed"
             job.error = f"OpenRouter video generation {status}: {data.get('error', 'unknown error')}"
             project.status = "Failed"

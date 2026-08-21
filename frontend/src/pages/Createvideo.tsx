@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/services/database";
+import { getApiUrl } from "@/lib/api-config";
 import {
   Wand2, Loader2, Search, AlertTriangle, Film, Clock, Camera,
   ChevronDown, Layers, Palette, Download, X, ImageOff,
@@ -424,7 +425,7 @@ const Createvideo = () => {
           <Card className="overflow-hidden border-white/10 bg-black shadow-xl shadow-black/30" data-testid="create-video-panel">
             <div className="relative aspect-video" data-testid="create-canvas">
               {videoLive ? (
-                <video src={job!.provider_url!} controls playsInline className="h-full w-full bg-black" aria-label="Generated video preview" />
+                <video src={getApiUrl(`/api/v1/videos/jobs/${job!.id}/stream?token=${encodeURIComponent(localStorage.getItem("auth_token") ?? "")}`)} controls playsInline className="h-full w-full bg-black" aria-label="Generated video preview" />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#0b0b18] text-zinc-500">
                   {jobBusy ? <><Loader2 className="h-8 w-8 animate-spin text-violet-400" aria-hidden="true" /><p className="text-sm">{job?.status ?? "Queued"}…</p></>
