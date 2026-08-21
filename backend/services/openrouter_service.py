@@ -26,11 +26,23 @@ async def list_models(api_key: str) -> list[dict]:
             raise OpenRouterError(f"OpenRouter models request failed ({res.status_code})")
         data = res.json().get("data", [])
 
+    def _output(m):
+        return ((m.get("architecture") or {}).get("output_modalities")) or []
+
+    # Video models only: models whose output modality includes video.
+    video_models = [m for m in data if "video" in _output(m)]
+    # Honest fallback: if OpenRouter has no video-output models, offer the
+    # image-output generation models (closest real generation capability).
+    selected = video_models
+    note = None
+    if not selected:
+        selected = [m for m in data if "image" in _output(m)]
+        note = ("No video-output models are currently available on OpenRouter; "
+                "showing image-generation models instead.")
+
     models = []
-    for m in data:
+    for m in selected:
         mid = m.get("id", "")
-        # Text models power script/scene/edit generation. Video-capable models (if any)
-        # are flagged via naming; OpenRouter is chat-only so duration defaults 5-10s.
         meta = m.get("metadata") or {}
         dmin = meta.get("min_duration") or 5
         dmax = meta.get("max_duration") or 10
@@ -49,7 +61,7 @@ async def list_models(api_key: str) -> list[dict]:
             "duration_min": dmin,
             "duration_max": dmax,
         })
-    return models
+    return {"models": models, "note": note}
 
 
 async def chat(api_key: str, model: str, messages: list[dict], max_tokens: int = 2000) -> str:

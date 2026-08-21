@@ -84,12 +84,12 @@ const Createvideo = () => {
     let alive = true;
     (async () => {
       setModelsLoading(true);
-      const res = await api.get<{ models: ModelInfo[] }>("/api/v1/videos/models");
+      const res = await api.get<{ models: ModelInfo[]; note?: string }>("/api/v1/videos/models");
       if (!alive) return;
       setModelsLoading(false);
       if (res.success && res.data?.models?.length) {
         setModels(res.data.models);
-        setModelsError(null);
+        setModelsError(res.data.note || null);
       } else {
         setModels([]);
         setModelsError(res.error || "No models available. Save your OpenRouter key in Settings first.");

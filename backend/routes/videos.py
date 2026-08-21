@@ -73,10 +73,10 @@ def _own_job(db: Session, user_id: int, job_id: int) -> VideoJob:
 async def get_models(user=Depends(get_current_user), db: Session = Depends(get_db)):
     key = _get_openrouter_key(db, user.id)
     try:
-        models = await list_models(key)
+        result = await list_models(key)
     except OpenRouterError as e:
         raise HTTPException(status_code=502, detail=f"OpenRouter error: {e}")
-    return {"models": models}
+    return {"models": result["models"], "note": result["note"]}
 
 
 # ---------------------------------------------------------------- projects
