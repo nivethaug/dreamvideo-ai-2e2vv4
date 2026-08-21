@@ -294,8 +294,10 @@ async def create_video(request: CreateVideoRequest, user=Depends(get_current_use
     project.duration = duration
     project.status = "Processing"
 
-    job = VideoJob(project_id=project.id, model=project.model or request.model,
-                   duration=duration, status="Queued")
+    import json as _json
+    job = VideoJob(project_id=project.id, user_id=user.id, provider="none", status="Queued",
+                   metadata_json=_json.dumps({"model": project.model or request.model,
+                                              "duration": duration}))
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -336,7 +338,7 @@ def _advance_job(db: Session, job: VideoJob):
         with httpx.Client(timeout=60) as client:
             resp = client.post(
                 provider,
-                json={"prompt": _compose_prompt(db, job), "duration": job.duration},
+                json={"prompt": _compose_prompt(db, job), "duration": _job_meta(job).get("duration")},
             )
             resp.raise_for_status()
             data = resp.json()
@@ -361,15 +363,24 @@ def _compose_prompt(db: Session, job: VideoJob) -> str:
     return f"{job.project.title}. " + " | ".join(parts)
 
 
+def _job_meta(job: VideoJob) -> dict:
+    import json as _json
+    try:
+        return _json.loads(job.metadata_json) if job.metadata_json else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def _job_dict(job: VideoJob) -> dict:
+    meta = _job_meta(job)
     return {
         "id": job.id,
         "project_id": job.project_id,
         "status": job.status,
-        "model": job.model,
-        "duration": job.duration,
+        "model": meta.get("model"),
+        "duration": meta.get("duration"),
         "provider_url": job.provider_url,
         "error": job.error,
-        "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+        "expires_at": None,
         "created_at": job.created_at.isoformat() if job.created_at else None,
     }
