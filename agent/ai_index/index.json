@@ -1,0 +1,20 @@
+{
+  "project": "DreamVideo AI",
+  "description": "Premium cinematic AI video creation studio — 4 pages (Landing, Dashboard, Createvideo, Settings), frontend-only demo auth, real Pexels imagery via verified catalog.",
+  "generated": "2026-08-21",
+  "files": [
+    { "path": "frontend/src/App.tsx", "lines": 43, "type": "entry", "purpose": "Router: / Landing, /dashboard Dashboard, /create Createvideo, /settings Settings, * NotFound; all inside Layout", "imports": ["./layout/Layout", "./pages/Landing", "./pages/Dashboard", "./pages/Createvideo", "./pages/Settings", "./pages/NotFound"], "routes": ["/", "/dashboard", "/create", "/settings"] },
+    { "path": "frontend/src/layout/Layout.tsx", "lines": 28, "type": "layout", "purpose": "Flex full-screen layout: Navbar + <main><Outlet/></main> + footer, wraps children in AuthProvider", "imports": ["./Navbar", "@/lib/auth"] },
+    { "path": "frontend/src/layout/Navbar.tsx", "lines": 93, "type": "component", "purpose": "Responsive top nav: NavLink to Home/Dashboard/Create Video/Settings with active highlight, desktop text links, mobile hamburger, Sign In dialog trigger", "imports": ["react-router-dom", "lucide-react", "@/lib/utils", "@/lib/auth"] },
+    { "path": "frontend/src/pages/Landing.tsx", "lines": 258, "type": "page", "purpose": "Hero 'Turn your ideas into videos' with studio preview, 4-step workflow, features, cinematic examples, testimonials, pricing, final CTA — all imagery real Pexels", "imports": ["@/lib/pexels", "@/lib/media-hooks", "@/lib/auth", "@/components/ui/*"] },
+    { "path": "frontend/src/pages/Dashboard.tsx", "lines": 170, "type": "page", "purpose": "Greeting, metric cards (Videos Created / In Progress / Completed), project gallery with Completed/Generating/Processing/Draft/Failed + empty state, continue-creating section", "imports": ["@/lib/pexels", "@/lib/auth", "@/components/ui/*"] },
+    { "path": "frontend/src/pages/Createvideo.tsx", "lines": 260, "type": "page", "purpose": "Idea input, style/model/duration selectors, video canvas with playback controls, storyboard scenes (Pexels thumbs, narration, direction, duration, media badge), Script/Scenes/Voice tabs, Edit-with-AI panel, Pexels media library (search/categories/preview/Use-in-Scene)", "imports": ["@/lib/pexels", "@/components/ui/*"] },
+    { "path": "frontend/src/pages/Settings.tsx", "lines": 175, "type": "page", "purpose": "Profile/Security/Preferences tabs, Pexels portrait avatar, masked OpenRouter key field (UI-only), log out, validation + toasts", "imports": ["@/lib/pexels", "@/lib/auth", "@/components/ui/*"] },
+    { "path": "frontend/src/lib/pexels.ts", "lines": 70, "type": "lib", "purpose": "Pexels media layer over verified catalog (48 live-fetched photos, 12 categories) — getByCategory, pick(seed), searchMedia (catalog-scoped; PENDING backend proxy for live runtime search)", "imports": ["./pexels-catalog.json"] },
+    { "path": "frontend/src/lib/pexels-catalog.json", "lines": 0, "type": "data", "purpose": "48 Pexels photos (url/photographer/alt) fetched with the saved PEXELS credential at build time" },
+    { "path": "frontend/src/lib/media-hooks.ts", "lines": 27, "type": "lib", "purpose": "useHeroImages, useCinematicExamples, useTestimonialAvatars, useFeatureImages — catalog-backed selectors", "imports": ["./pexels"] },
+    { "path": "frontend/src/lib/auth.tsx", "lines": 120, "type": "lib", "purpose": "Demo auth: AuthProvider context + useAuth + SignInDialog/SignUpDialog (frontend-only state, no password storage; PENDING wire to /api/auth)" }
+  ],
+  "dependencies_note": "No new npm packages installed. Uses template deps: react, react-router-dom, @tanstack/react-query, lucide-react, tailwind, shadcn ui components in src/components/ui/ (unmodified).",
+  "verification": { "build": "npm run build ✓", "browser": "ok:true mainW:792 navW:792 links:15 headings:17 @ http://172.18.0.2:3004/" }
+}

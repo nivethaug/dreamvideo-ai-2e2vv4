@@ -1,0 +1,10 @@
+{
+  "pages": [
+    "Landing",
+    "Dashboard",
+    "Createvideo",
+    "Settings"
+  ],
+  "generated_at": null,
+  "scaffolded": false
+}

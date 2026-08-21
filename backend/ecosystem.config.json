@@ -1,0 +1,25 @@
+{
+  "apps": [
+    {
+      "name": "dreamvideo-ai-2e2vv4-backend",
+      "script": "/root/clawd-backend/scripts/backend-sandbox.sh",
+      "args": "/root/dreampilot/dreampilotvenv /workspaces/user_24/website/2007_dreamvideo-ai_20260821_152354/backend 8017",
+      "cwd": "/workspaces/user_24/website/2007_dreamvideo-ai_20260821_152354/backend",
+      "interpreter": "/bin/bash",
+      "instances": 1,
+      "exec_mode": "fork",
+      "watch": false,
+      "max_memory_restart": "900M",
+      "out_file": "/workspaces/user_24/website/2007_dreamvideo-ai_20260821_152354/backend/logs/out.log",
+      "error_file": "/workspaces/user_24/website/2007_dreamvideo-ai_20260821_152354/backend/logs/error.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss",
+      "env": {
+        "PORT": "8017",
+        "BACKEND_HOST": "0.0.0.0",
+        "BACKEND_PORT": "8017",
+        "PROJECT_NAME": "dreamvideo-ai-2e2vv4",
+        "DATABASE_URL": "postgresql://dreamvideo_ai_2e2vv4_user:jdhd3Jfd6pLcJmUubJHf0a2Wy0KCXok2@localhost:5432/dreamvideo_ai_2e2vv4_db"
+      }
+    }
+  ]
+}
