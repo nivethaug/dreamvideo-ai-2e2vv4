@@ -49,7 +49,7 @@
     /* Borders and inputs */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 160 84% 39%;
+    --ring: 262 83% 58%;
     
     /* Border radius */
     --radius: 0.5rem;
@@ -62,7 +62,7 @@
     --sidebar-accent: 160 84% 96%;
     --sidebar-accent-foreground: 160 84% 25%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-ring: 262 83% 58%;
     
     /* Chart colors */
     --chart-1: 160 84% 39%;
