@@ -1,0 +1,21 @@
+{
+  "project_name": "DreamVideo AI",
+  "description": null,
+  "template_id": null,
+  "ports": {
+    "frontend": 3017,
+    "backend": 8017
+  },
+  "domains": {
+    "frontend": "dreamvideo-ai-2e2vv4.dreamagent.cloud",
+    "backend": "dreamvideo-ai-2e2vv4-api.dreamagent.cloud"
+  },
+  "dns": {},
+  "database": {
+    "name": "dreamvideo_ai_2e2vv4_db",
+    "user": "dreamvideo_ai_2e2vv4_user"
+  },
+  "service_name": "dreamvideo-ai-2e2vv4-backend",
+  "status": "ready",
+  "frontend_app_name": "dreamvideo-ai-2e2vv4-frontend"
+}
