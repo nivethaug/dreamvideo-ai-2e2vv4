@@ -209,7 +209,7 @@ const Createvideo = () => {
   const videoLive = job?.status === "Completed" && job.provider_url && !urlExpired(job.expires_at);
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-4 py-8 md:px-8 md:py-10" data-testid="create-page">
+    <div className="page-enter mx-auto w-full max-w-[1440px] px-4 py-8 md:px-8 md:py-10" data-testid="create-page">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -242,7 +242,7 @@ const Createvideo = () => {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,65fr)_minmax(320px,35fr)]">
         {/* LEFT — creation controls */}
         <div className="min-w-0">
-          <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl">
+          <Card className="glass-card">
             <CardContent className="space-y-6 p-5 md:p-6">
               <div className="space-y-2">
                 <Label htmlFor="idea" className="text-sm font-medium text-zinc-300">Your idea</Label>
@@ -381,7 +381,7 @@ const Createvideo = () => {
           </Card>
 
           {/* Media library */}
-          <Card className="mt-6 border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="create-media-section">
+          <Card className="glass-card mt-6" data-testid="create-media-section">
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-base font-semibold"><Film className="h-4 w-4 text-violet-600" aria-hidden="true" />Pexels media library</h2>

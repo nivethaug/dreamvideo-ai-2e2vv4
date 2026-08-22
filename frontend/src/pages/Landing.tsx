@@ -87,7 +87,7 @@ const Landing = () => {
               <Star className="h-3 w-3" aria-hidden="true" /> Cinematic AI video studio
             </span>
             <h1 className="mt-5 font-serif text-4xl leading-tight text-zinc-50 md:text-6xl">
-              Turn your ideas<br />into <span className="italic text-indigo-300">videos</span>.
+              Turn your ideas<br />into <span className="grad-text italic">videos</span>.
             </h1>
             <p className="mt-5 max-w-md text-zinc-400">
               DreamVideo AI writes the script, builds the storyboard from real footage, and renders a finished cut — while you stay in the director's chair.
@@ -95,7 +95,7 @@ const Landing = () => {
             <div className="mt-8 flex flex-wrap gap-3">
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button size="lg" className="bg-indigo-500 hover:bg-indigo-400" onClick={() => setAuthMode("signup")}>
+                  <Button size="lg" className="glow-cta bg-indigo-500 hover:bg-indigo-400" onClick={() => setAuthMode("signup")}>
                     <span className="flex items-center gap-2"><Wand2 className="h-4 w-4" aria-hidden="true" /> Start creating</span>
                   </Button>
                 </DialogTrigger>
@@ -166,7 +166,7 @@ const Landing = () => {
         <h2 className="font-serif text-3xl text-zinc-100">From paragraph to premiere</h2>
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s, i) => (
-            <Card key={s.title} className="border-white/10 bg-white/[0.03] transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10">
+            <Card key={s.title} className="glass-card border-white/10">
               <CardContent className="space-y-3 p-6">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
                   <s.icon className="h-5 w-5 text-white" aria-hidden="true" />

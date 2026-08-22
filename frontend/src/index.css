@@ -331,3 +331,60 @@
     }
   }
 }
+
+/* ===== Modern UX polish (dark theme) ===== */
+html { color-scheme: dark; scroll-behavior: smooth; }
+
+::selection { background: rgba(139,92,246,0.35); color: #fff; }
+
+/* Slim modern scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #07070f; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(124,58,237,0.35), rgba(79,70,229,0.35));
+  border-radius: 999px;
+  border: 2px solid #07070f;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(139,92,246,0.6), rgba(99,102,241,0.6));
+}
+
+/* Softer, smoother page transitions */
+.page-enter { animation: pageEnterModern 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes pageEnterModern {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Glass card with hover lift */
+.glass-card {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(16px);
+  transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), border-color 0.3s, box-shadow 0.3s;
+}
+.glass-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(139,92,246,0.35);
+  box-shadow: 0 18px 40px -18px rgba(124,58,237,0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-card:hover { transform: none; }
+  .page-enter { animation: none; }
+}
+
+/* Animated gradient headline accent */
+.grad-text {
+  background: linear-gradient(90deg, #a78bfa, #818cf8, #c084fc, #a78bfa);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradShift 6s linear infinite;
+}
+@keyframes gradShift { to { background-position: 200% center; } }
+@media (prefers-reduced-motion: reduce) { .grad-text { animation: none; } }
+
+/* Soft glow behind primary CTA buttons */
+.glow-cta { box-shadow: 0 8px 30px -8px rgba(124,58,237,0.55); }
+.glow-cta:hover { box-shadow: 0 10px 36px -8px rgba(139,92,246,0.7); }

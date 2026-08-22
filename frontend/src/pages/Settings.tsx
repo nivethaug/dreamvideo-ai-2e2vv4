@@ -83,8 +83,8 @@ const Settings = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-12" data-testid="settings-page">
-      <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
+    <div className="page-enter mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-12" data-testid="settings-page">
+      <h1 className="grad-text text-3xl font-semibold tracking-tight">Settings</h1>
       <p className="mt-1 text-sm text-zinc-400">Studio profile, security and render preferences.</p>
 
       {toast && (
@@ -106,7 +106,7 @@ const Settings = () => {
       <div className="mt-6 space-y-6" aria-live="polite">
         {tab === "profile" && (
           <>
-            <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="settings-profile-section">
+            <Card className="glass-card" data-testid="settings-profile-section">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16 border border-white/10">
@@ -137,7 +137,7 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-white/10 bg-white/[0.03]">
+            <Card className="glass-card">
               <CardContent className="flex flex-wrap items-center justify-between gap-3 p-6">
                 <div>
                   <p className="font-medium">Account</p>
@@ -152,7 +152,7 @@ const Settings = () => {
         )}
 
         {tab === "security" && (
-          <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl" data-testid="settings-security-section">
+          <Card className="glass-card" data-testid="settings-security-section">
             <CardContent className="space-y-6 p-6">
               <div data-testid="settings-openrouter-section">
                 <h2 className="font-medium">OpenRouter API key</h2>
@@ -191,7 +191,7 @@ const Settings = () => {
         )}
 
         {tab === "preferences" && (
-          <Card className="border-white/10 bg-white/[0.03] backdrop-blur-xl">
+          <Card className="glass-card">
             <CardContent className="space-y-5 p-6">
               {[
                 ["Default style", "Cinematic 2.39:1"],

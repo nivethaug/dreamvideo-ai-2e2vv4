@@ -108,12 +108,12 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-12" data-testid="dashboard-page">
+    <div className="page-enter mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-12" data-testid="dashboard-page">
       {/* Greeting + continue creating */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.2em] text-violet-600/80">{greeting}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-100 md:text-4xl">{firstName}, your studio is warm.</h1>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-100 md:text-4xl">{firstName}, your studio is <span className="grad-text">warm</span>.</h1>
           <p className="mt-2 max-w-xl text-sm text-zinc-400">
             {activeCount > 0
               ? `${activeCount} ${activeCount === 1 ? "render is" : "renders are"} working in the background. Pick up a draft or start something new.`
@@ -128,7 +128,7 @@ const Dashboard = () => {
       {/* Metrics */}
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {metrics.map((m, i) => (
-          <Card key={m.label} data-testid={["dashboard-kpi-created", "dashboard-kpi-progress", "dashboard-kpi-completed"][i]} className="border-white/10 bg-white/[0.03] backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-violet-950/30">
+          <Card key={m.label} data-testid={["dashboard-kpi-created", "dashboard-kpi-progress", "dashboard-kpi-completed"][i]} className="glass-card">
             <CardContent className="flex items-center justify-between p-5">
               <div>
                 <p className="text-xs uppercase tracking-widest text-zinc-500">{m.label}</p>
@@ -170,7 +170,7 @@ const Dashboard = () => {
               const meta = STATUS_META[p.status] ?? STATUS_META.Draft;
               const Icon = meta.icon;
               return (
-                <Card key={p.id} data-testid={`dashboard-project-card-${p.id}`} className="group overflow-hidden border-white/10 bg-white/[0.03] transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-950/40">
+                <Card key={p.id} data-testid={`dashboard-project-card-${p.id}`} className="glass-card group overflow-hidden">
                   <div className="relative aspect-video overflow-hidden">
                     <img src={thumb} alt={p.title} loading="lazy" className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" aria-hidden="true" />

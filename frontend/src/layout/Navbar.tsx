@@ -36,7 +36,8 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#07070f]/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#07070f]/80 backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" aria-hidden="true" />
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6" aria-label="Main navigation">
         <Link to="/" className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-700 shadow-lg shadow-purple-900/40">
@@ -55,8 +56,8 @@ export default function Navbar() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  "flex h-11 items-center rounded-lg px-4 text-sm font-medium transition-colors duration-200",
-                  isActive ? "bg-white/10 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+                  "relative flex h-11 items-center rounded-full px-4 text-sm font-medium transition-colors duration-200",
+                  isActive ? "bg-violet-500/15 text-violet-100 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.35)]" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
                 )
               }
             >
